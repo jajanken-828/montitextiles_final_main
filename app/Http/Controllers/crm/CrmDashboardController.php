@@ -4,80 +4,42 @@ namespace App\Http\Controllers\crm;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
-use App\Models\CrmInteraction;
 use App\Models\CrmLead;
-use App\Models\PurchaseOrder;
-use App\Models\User;
-use Carbon\Carbon;
+use App\Models\CrmFeedback;
+use App\Models\CrmMeeting;
+use App\Models\CrmClientAssignment;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class CrmDashboardController extends Controller
 {
-    public function managerDashboard()
+    public function index()
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
-        $totalLeads = CrmLead::count();
-        $wonLeads = CrmLead::where('status', 'Closed-Won')->count();
-        $conversionRate = $totalLeads > 0 ? round(($wonLeads / $totalLeads) * 100) : 0;
+        // Allow only CRM users (any position) and CEO
+        if (!in_array($user->role, ['CRM', 'CEO'])) {
+            abort(403, 'Unauthorized access.');
+        }
 
-        $baseProps = [
-            'user' => $user,
-            'userRole' => 'CRM',
-            'userPosition' => 'manager',
-            'businessPartners' => Client::all() ?? [],
-            'leads' => CrmLead::with('assignedStaff')->latest()->get() ?? [],
-            'pendingRegistrations' => Client::where('status', 'pending')->get(),
-            'upcomingInterviews' => [], // todo
-            'pendingApprovals' => [],
+        $stats = [
+            'total_clients' => Client::where('status', 'active')->count(),
+            'pending_clients' => Client::where('status', 'pending')->count(),
+            'total_leads' => CrmLead::count(),
+            'open_feedback' => CrmFeedback::where('status', 'open')->count(),
         ];
 
-        $managerProps = array_merge($baseProps, [
-            'stats' => [
-                'totalPipelineValue' => (float) CrmLead::whereNotIn('status', ['Closed-Won', 'Lost'])->sum('estimated_value'),
-                'activeInquiries' => CrmLead::where('status', 'Inquiry')->count(),
-                'pendingApprovals' => PurchaseOrder::whereIn('status', ['credit_review', 'tier_assignment'])->count(),
-                'conversionRate' => (int) $conversionRate,
-            ],
-            'dailyActivityCount' => CrmInteraction::whereDate('created_at', Carbon::today())->count(),
-            'leaderboard' => User::where('role', 'CRM')
-                ->where('position', 'staff')
-                ->withCount(['leads as won_deals' => fn ($q) => $q->where('status', 'Closed-Won')])
-                ->orderBy('won_deals', 'desc')
-                ->get()
-                ->map(fn ($u) => [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'email' => $u->email,
-                    'won_deals' => $u->won_deals,
-                ]),
+        // If user is staff and has assigned clients for investigation, show only those
+        if ($user->position === 'staff') {
+            $assignedClientIds = CrmClientAssignment::where('staff_id', $user->id)->pluck('client_id');
+            $recentFeedback = CrmFeedback::whereIn('client_id', $assignedClientIds)->latest()->take(5)->get();
+        } else {
+            $recentFeedback = CrmFeedback::latest()->take(5)->get();
+        }
+
+        return Inertia::render('Dashboard/CRM/CRMDashboard', [
+            'stats' => $stats,
+            'recentFeedback' => $recentFeedback,
         ]);
-
-        return Inertia::render('Dashboard/CRM/Index', $managerProps);
-    }
-
-    public function staffDashboard()
-    {
-        $user = auth()->user();
-
-        $baseProps = [
-            'user' => $user,
-            'userRole' => 'CRM',
-            'userPosition' => 'staff',
-            'businessPartners' => [],
-            'leads' => $user->leads()->latest()->get() ?? [],
-            'pendingRegistrations' => [],
-            'upcomingInterviews' => [],
-            'pendingApprovals' => [],
-        ];
-
-        $staffProps = array_merge($baseProps, [
-            'stats' => [
-                'myLeads' => $user->leads()->count(),
-                'myActivities' => CrmInteraction::where('user_id', $user->id)->count(),
-            ],
-        ]);
-
-        return Inertia::render('Dashboard/CRM/Index', $staffProps);
     }
 }

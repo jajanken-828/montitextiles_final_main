@@ -33,27 +33,30 @@ class DashboardController extends Controller
 
         // Map role to route name
         $routeMap = [
-            // FIXED: HRM uses a unified dashboard route instead of separate manager/employee routes
+            // HRM uses a unified dashboard
             'HRM' => 'hrm.dashboard',
 
-            'SCM' => 'scm.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'FIN' => 'fin.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'MAN' => 'man.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'INV' => 'inv.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'ORD' => 'ord.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'WAR' => 'war.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'CRM' => 'crm.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'ECO' => 'eco.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'PRO' => 'pro.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'PROJ' => 'proj.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
-            'IT' => 'it.'.($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            // CRM also uses a unified dashboard (no separate employee/manager)
+            'CRM' => 'crm.dashboard',
+
+            // Other modules have separate manager / employee dashboards
+            'SCM'  => 'scm.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'FIN'  => 'fin.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'MAN'  => 'man.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'INV'  => 'inv.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'ORD'  => 'ord.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'WAR'  => 'war.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'ECO'  => 'eco.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'PRO'  => 'pro.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'PROJ' => 'proj.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
+            'IT'   => 'it.' . ($position === 'manager' ? 'manager.dashboard' : 'employee.dashboard'),
         ];
 
         if (isset($routeMap[$role])) {
             return redirect()->route($routeMap[$role]);
         }
 
-        // Fallback
+        // Fallback for any other role (e.g., staff with no specific module)
         return Inertia::render('Dashboard', [
             'stats' => [
                 'total_tasks' => 0,

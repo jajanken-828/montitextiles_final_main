@@ -5,7 +5,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import {
     Filter, Download, Plus, ChevronDown, ArrowDownRight, ArrowUpRight,
     Settings2, ArrowUpRightSquare, Clock, CheckCircle2, AlertTriangle,
-    X, Wallet, TrendingUp, Users, Factory, Package, ShoppingCart, Activity
+    X, Wallet, TrendingUp, Users, Factory, Package, ShoppingCart, DollarSign,Activity
 } from 'lucide-vue-next';
 
 const props = defineProps({

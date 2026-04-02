@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\CrmPagePermission;
 
 class User extends Authenticatable
 {
@@ -252,6 +253,70 @@ class User extends Authenticatable
     public function pagePermissions()
     {
         return $this->hasMany(PagePermission::class);
+    }
+
+    public function workforcePermissions()
+    {
+        return $this->hasMany(WorkforcePermission::class);
+    }
+
+    /**
+     * Check if user can access workforce module for a specific module/department.
+     *
+     * @param  string|null  $module  e.g., 'HRM', null means any module
+     * @param  string|null  $department  e.g., 'dyeing'
+     * @param  string  $requiredLevel  'view', 'schedule', 'manage'
+     */
+    public function canAccessWorkforce($module = null, $department = null, $requiredLevel = 'view')
+    {
+        // CEO always has full access
+        if ($this->role === 'CEO') {
+            return true;
+        }
+
+        // Superusers: secretary, general_manager (by position) – they have full access if CEO grants them any permission
+        // For simplicity, we check if they have at least one permission row with the required level.
+        $query = $this->workforcePermissions();
+
+        if ($module) {
+            $query->where(function ($q) use ($module) {
+                $q->where('module', $module)->orWhereNull('module');
+            });
+        }
+        if ($department) {
+            $query->where(function ($q) use ($department) {
+                $q->where('department', $department)->orWhereNull('department');
+            });
+        }
+
+        $levels = ['view' => 1, 'schedule' => 2, 'manage' => 3];
+        $requiredRank = $levels[$requiredLevel] ?? 1;
+
+        $permission = $query->first();
+        if (! $permission) {
+            return false;
+        }
+
+        $userRank = $levels[$permission->access_level] ?? 1;
+
+        return $userRank >= $requiredRank;
+    }
+
+    public function crmPagePermissions()
+    {
+        return $this->hasMany(CrmPagePermission::class);
+    }
+
+    public function canAccessCrmPage($page)
+    {
+        // CEO always has full access
+        if ($this->role === 'CEO') {
+            return true;
+        }
+
+        // Managers can access all pages? Not necessarily; we'll check permissions
+        // But for simplicity, we'll rely on the permissions table.
+        return CrmPagePermission::where('user_id', $this->id)->where('page', $page)->exists();
     }
 
     /**

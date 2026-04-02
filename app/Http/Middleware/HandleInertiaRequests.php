@@ -3,10 +3,12 @@
 namespace App\Http\Middleware;
 
 use App\Models\PagePermission;
+use App\Models\WorkforcePermission;
+use App\Models\CrmPagePermission; // Added for CRM permissions
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
-use Tighten\Ziggy\Ziggy; // Import the PagePermission model
+use Tighten\Ziggy\Ziggy;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -43,9 +45,20 @@ class HandleInertiaRequests extends Middleware
                 ->groupBy('module')
                 ->map(fn ($perms) => $perms->pluck('page'));
 
-            // Merge the original user attributes with the permissions array
+            // Fetch workforce permissions (for Workforce Management module)
+            $workforcePermissions = WorkforcePermission::where('user_id', $user->id)->get();
+
+            // Fetch CRM page permissions (for CRM module – available to CRM and CEO)
+            $crmPagePermissions = [];
+            if (in_array($user->role, ['CRM', 'CEO'])) {
+                $crmPagePermissions = CrmPagePermission::where('user_id', $user->id)->pluck('page')->toArray();
+            }
+
+            // Merge the original user attributes with the permissions arrays
             $userData = array_merge($user->toArray(), [
-                'permissions' => $permissions,
+                'permissions'            => $permissions,
+                'workforce_permissions'  => $workforcePermissions,
+                'crmPagePermissions'     => $crmPagePermissions,
             ]);
         }
 

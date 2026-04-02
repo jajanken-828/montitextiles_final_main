@@ -10,13 +10,14 @@ use App\Http\Controllers\client\ProductController as ClientProductController;
 use App\Http\Controllers\client\ProfileController as ClientProfileController;
 use App\Http\Controllers\client\QuotationController;
 use App\Http\Controllers\client\SupportController;
+use App\Http\Controllers\crm\AccessController as CrmAccessController;
+use App\Http\Controllers\crm\ApprovalController;
 use App\Http\Controllers\crm\CrmDashboardController;
-use App\Http\Controllers\crm\manager\CrmApprovalController;
-use App\Http\Controllers\crm\manager\OversightController;
-use App\Http\Controllers\crm\manager\StrategyController;
-use App\Http\Controllers\crm\staff\CustomerprofileController;
-use App\Http\Controllers\crm\staff\LeadController;
-use App\Http\Controllers\crm\staff\StaffDayController;
+use App\Http\Controllers\crm\CustomerProfileController;
+use App\Http\Controllers\crm\InterviewController as CrmInterviewController;
+use App\Http\Controllers\crm\InvestigationController;
+use App\Http\Controllers\crm\LeadController;
+use App\Http\Controllers\crm\TraineeController as CrmTraineeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\eco\EcoDashboardController;
 use App\Http\Controllers\eco\manager\BookController;
@@ -78,6 +79,12 @@ use App\Http\Controllers\users\AppController;
 use App\Http\Controllers\users\ClockController;
 use App\Http\Controllers\users\leaveController as UserLeaveController;
 use App\Http\Controllers\war\WarDashboardController;
+// Workforce Management Controllers
+use App\Http\Controllers\workforce\AbsentController;
+use App\Http\Controllers\workforce\AccessController as WorkforceAccessController;
+use App\Http\Controllers\workforce\LeaveController as WorkforceLeaveController;
+use App\Http\Controllers\workforce\SchedulerController;
+use App\Http\Controllers\workforce\WorkforceDashboardController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -162,7 +169,7 @@ Route::prefix('dashboard/hrm')->name('hrm.')->middleware(['auth', 'verified'])->
     Route::delete('/employees/{id}', [EmployeeController::class, 'toggleStatus'])->name('employees.toggle-status');
 
     Route::get('/applications', [HrmApplicantController::class, 'index'])->name('applications.index');
-    Route::post('/applications', [HrmApplicantController::class, 'store'])->name('applications.store'); // ✅ Add this
+    Route::post('/applications', [HrmApplicantController::class, 'store'])->name('applications.store');
     Route::post('/applications/{id}/accept', [HrmApplicantController::class, 'accept'])->name('applications.accept');
     Route::post('/applications/{id}/reject', [HrmApplicantController::class, 'reject'])->name('applications.reject');
     Route::get('/rejected', [HrmApplicantController::class, 'rejected'])->name('applications.rejected');
@@ -186,6 +193,36 @@ Route::prefix('dashboard/hrm')->name('hrm.')->middleware(['auth', 'verified'])->
 
     Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll');
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Workforce Management Routes
+|--------------------------------------------------------------------------
+*/
+Route::prefix('dashboard/workforce')->name('workforce.')->middleware(['auth', 'verified'])->group(function () {
+    Route::get('/', [WorkforceDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/scheduler', [SchedulerController::class, 'index'])->name('scheduler');
+    Route::post('/scheduler/shift', [SchedulerController::class, 'storeShift'])->name('scheduler.shift.store');
+    Route::delete('/scheduler/shift/{id}', [SchedulerController::class, 'deleteShift'])->name('scheduler.shift.destroy');
+    Route::post('/scheduler/holiday', [SchedulerController::class, 'storeHoliday'])->name('scheduler.holiday.store');
+    Route::delete('/scheduler/holiday/{id}', [SchedulerController::class, 'deleteHoliday'])->name('scheduler.holiday.destroy');
+    Route::post('/scheduler/shift/bulk', [SchedulerController::class, 'storeBulkShift'])->name('scheduler.shift.bulk');
+    Route::patch('/scheduler/holiday/{id}', [SchedulerController::class, 'updateHoliday'])->name('scheduler.holiday.update');
+    // CEO Planner routes
+    Route::post('/scheduler/planner', [SchedulerController::class, 'storePlannerEvent'])->name('scheduler.planner.store');
+    Route::patch('/scheduler/planner/{id}', [SchedulerController::class, 'updatePlannerEvent'])->name('scheduler.planner.update');
+    Route::delete('/scheduler/planner/{id}', [SchedulerController::class, 'deletePlannerEvent'])->name('scheduler.planner.destroy');
+
+    Route::get('/leave', [WorkforceLeaveController::class, 'index'])->name('leave');
+    Route::post('/leave/{id}/approve', [WorkforceLeaveController::class, 'approve'])->name('leave.approve');
+    Route::post('/leave/{id}/reject', [WorkforceLeaveController::class, 'reject'])->name('leave.reject');
+
+    Route::get('/absent', [AbsentController::class, 'index'])->name('absent');
+    Route::post('/absent/{id}/suspend', [AbsentController::class, 'suspend'])->name('absent.suspend');
+
+    Route::get('/access', [WorkforceAccessController::class, 'index'])->name('access');
+    Route::post('/access/update', [WorkforceAccessController::class, 'update'])->name('access.update');
 });
 
 /*
@@ -465,32 +502,15 @@ Route::prefix('dashboard/war')->name('war.')->middleware(['auth', 'verified'])->
 
 /*
 |--------------------------------------------------------------------------
-| Customer Relationship Management (CRM) Routes
+| Customer Relationship Management (CRM) Routes – Restructured
 |--------------------------------------------------------------------------
 */
 Route::prefix('dashboard/crm')->name('crm.')->middleware(['auth', 'verified'])->group(function () {
-    Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
-    Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
-    Route::get('/access', [AccessController::class, 'index'])->name('access.index');
+    // Dashboard (unified, no manager/staff split)
+    Route::get('/', [CrmDashboardController::class, 'index'])->name('dashboard');
 
-    Route::get('/', function () {
-        $user = auth()->user();
-        if ($user->position === 'manager') {
-            return redirect()->route('crm.manager.dashboard');
-        }
-
-        return redirect()->route('crm.employee.dashboard');
-    })->name('dashboard');
-
-    Route::get('/manager', [CrmDashboardController::class, 'managerDashboard'])
-        ->middleware(['role:CRM', 'position:manager'])
-        ->name('manager.dashboard');
-
-    Route::get('/staff', [CrmDashboardController::class, 'staffDashboard'])
-        ->middleware(['role:CRM', 'position:staff'])
-        ->name('employee.dashboard');
-
-    Route::get('/lead', [LeadController::class, 'lead'])->name('lead');
+    // Lead Pipeline
+    Route::get('/lead', [LeadController::class, 'index'])->name('lead');
     Route::post('/lead/store', [LeadController::class, 'store'])->name('lead.store');
     Route::patch('/lead/{id}/status', [LeadController::class, 'updateStatus'])->name('lead.status');
     Route::post('/lead/convert', [LeadController::class, 'convertToClient'])->name('lead.convert');
@@ -500,27 +520,40 @@ Route::prefix('dashboard/crm')->name('crm.')->middleware(['auth', 'verified'])->
     Route::post('/lead/{id}/accept', [LeadController::class, 'acceptLead'])->name('lead.accept');
     Route::post('/lead/{id}/reject', [LeadController::class, 'rejectLead'])->name('lead.reject');
 
-    Route::get('/customerprofile/{id?}', [CustomerprofileController::class, 'customerprofile'])->name('customerprofile');
-    Route::post('/interaction/store', [CustomerprofileController::class, 'storeInteraction'])->name('interaction.store');
+    // Interview (applicants assigned to CRM)
+    Route::get('/interview', [CrmInterviewController::class, 'index'])->name('interview.index');
+    Route::post('/interview/{id}/schedule', [CrmInterviewController::class, 'schedule'])->name('interview.schedule');
+    Route::post('/interview/{id}/pass', [CrmInterviewController::class, 'pass'])->name('interview.pass');
+    Route::post('/interview/{id}/fail', [CrmInterviewController::class, 'fail'])->name('interview.fail');
+    Route::post('/interview/{id}/pass-to-other', [CrmInterviewController::class, 'passToOtherModule'])->name('interview.pass-to-other');
 
-    Route::get('/approvals', [CrmApprovalController::class, 'index'])
-        ->middleware(['role:CRM', 'position:manager'])
-        ->name('approval.queue');
-    Route::post('/approvals/{id}/process', [CrmApprovalController::class, 'process'])
-        ->middleware(['role:CRM', 'position:manager'])
-        ->name('approval.process');
+    // Trainee (CRM trainees)
+    Route::get('/trainee', [CrmTraineeController::class, 'index'])->name('trainee.index');
+    Route::post('/trainee/{id}/grade', [CrmTraineeController::class, 'grade'])->name('trainee.grade');
+    Route::post('/trainee/{id}/pass', [CrmTraineeController::class, 'pass'])->name('trainee.pass');
+    Route::post('/trainee/{id}/fail', [CrmTraineeController::class, 'fail'])->name('trainee.fail');
 
-    Route::get('/oversight', [OversightController::class, 'oversight'])
-        ->middleware(['role:CRM', 'position:manager'])
-        ->name('oversight');
+    // Approval (pending client registrations)
+    Route::get('/approval', [ApprovalController::class, 'index'])->name('approval.index');
+    Route::post('/approval/{id}/note', [ApprovalController::class, 'addNote'])->name('approval.note');
+    Route::post('/approval/{id}/meeting', [ApprovalController::class, 'scheduleMeeting'])->name('approval.meeting');
+    Route::patch('/approval/meeting/{meetingId}/status', [ApprovalController::class, 'updateMeetingStatus'])->name('approval.meeting.update');
+    Route::post('/approval/{id}/accept', [ApprovalController::class, 'accept'])->name('approval.accept');
+    Route::post('/approval/{id}/reject', [ApprovalController::class, 'reject'])->name('approval.reject');
 
-    Route::get('/strategy', [StrategyController::class, 'strategy'])
-        ->middleware(['role:CRM', 'position:manager'])
-        ->name('strategy');
+    // Customer Profiles — index lists all clients, show displays one
+    Route::get('/customerprofile', [CustomerProfileController::class, 'index'])->name('customerprofile.index');
+    Route::get('/customerprofile/{id}', [CustomerProfileController::class, 'show'])->name('customerprofile.show');
 
-    Route::get('/my-day', [StaffDayController::class, 'index'])
-        ->middleware(['role:CRM', 'position:staff'])
-        ->name('staff.day');
+    // Investigation (feedback/complaints)
+    Route::get('/investigation', [InvestigationController::class, 'index'])->name('investigation.index');
+    Route::post('/investigation/assign', [InvestigationController::class, 'assignStaff'])->name('investigation.assign');
+    Route::post('/investigation/feedback', [InvestigationController::class, 'storeFeedback'])->name('investigation.feedback.store');
+    Route::patch('/investigation/feedback/{id}/status', [InvestigationController::class, 'updateFeedbackStatus'])->name('investigation.feedback.status');
+
+    // Access Control (CRM permissions)
+    Route::get('/access', [CrmAccessController::class, 'index'])->name('access.index');
+    Route::post('/access/update', [CrmAccessController::class, 'update'])->name('access.update');
 });
 
 /*
