@@ -52,9 +52,9 @@ class PurchaseOrder extends Model
     }
     /* app/Models/PurchaseOrder.php */
 
-public function orderQueue()
-{
-    // Adjust 'OrderQueue::class' to your actual model name for the queue
-    return $this->hasOne(OrderQueue::class); 
-}
+    public function orderQueue()
+    {
+        // Adjust 'OrderQueue::class' to your actual model name for the queue
+        return $this->hasOne(OrderQueue::class);
+    }
 }

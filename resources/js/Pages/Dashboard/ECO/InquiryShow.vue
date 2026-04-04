@@ -179,9 +179,10 @@
 
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
 import { ArrowLeft, Shield, Calendar, Paperclip, Send, Loader2, FileText, X } from 'lucide-vue-next';
+import axios from 'axios';
 
 const props = defineProps({
     inquiry: Object,
@@ -247,7 +248,6 @@ const triggerFileUpload = () => {
 const uploadAttachment = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    // Implement file upload via FormData
     const formData = new FormData();
     formData.append('attachment', file);
     formData.append('message', 'Sent an attachment');
@@ -267,8 +267,13 @@ const scheduleMeeting = async () => {
 };
 
 const checkCredit = async () => {
-    const res = await axios.get(route('eco.credit.check', props.inquiry.client_id));
-    alert(`Credit Status: ${res.data.is_good_payer ? 'Good Payer' : 'High Risk'}\nOutstanding Balance: ₱${res.data.outstanding}`);
+    try {
+        const res = await axios.get(route('eco.credit.check', props.inquiry.client_id));
+        alert(`Credit Status: ${res.data.is_good_payer ? 'Good Payer' : 'High Risk'}\nOutstanding Balance: ₱${res.data.outstanding}`);
+    } catch (error) {
+        console.error('Credit check failed', error);
+        alert('Could not fetch credit information.');
+    }
 };
 
 const openQuotationModal = () => {
@@ -284,7 +289,6 @@ const removeItem = (idx) => {
 };
 
 const submitQuotation = async () => {
-    // Validate
     for (let item of quotationItems.value) {
         if (!item.product_id || item.quantity <= 0 || item.unit_price <= 0) {
             alert('Please fill all product fields correctly.');
@@ -305,7 +309,6 @@ const submitQuotation = async () => {
     });
     submitting.value = false;
     showQuotationModal.value = false;
-    // reset form
     quotationItems.value = [{ product_id: '', quantity: 1, unit_price: 0, technical_specs: '' }];
     quotationForm.value = { delivery_date: '', payment_mode: '', payment_terms: '', notes: '' };
     scrollToBottom();
@@ -331,5 +334,7 @@ watch(() => props.inquiry.messages, () => {
 
 onMounted(() => {
     scrollToBottom();
+    // Debug: log products to console
+    console.log('Available products:', props.allProducts);
 });
 </script>

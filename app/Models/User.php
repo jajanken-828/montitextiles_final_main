@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Models\CrmPagePermission;
 
 class User extends Authenticatable
 {
@@ -317,6 +316,47 @@ class User extends Authenticatable
         // Managers can access all pages? Not necessarily; we'll check permissions
         // But for simplicity, we'll rely on the permissions table.
         return CrmPagePermission::where('user_id', $this->id)->where('page', $page)->exists();
+    }
+
+    // Warehouse and Inventory Access Relationships
+    public function warehouseAccess()
+    {
+        return $this->belongsToMany(Warehouse::class, 'user_warehouse_access', 'user_id', 'warehouse_id');
+    }
+
+    public function inventoryAccess()
+    {
+        return $this->belongsToMany(Warehouse::class, 'user_inventory_access', 'user_id', 'warehouse_id');
+    }
+
+    /**
+     * Check if user has any warehouse assigned (raw DB query to avoid ambiguous column).
+     */
+    public function hasWarehouseAccess(): bool
+    {
+        return \DB::table('user_warehouse_access')
+            ->where('user_id', $this->id)
+            ->exists();
+    }
+
+    /**
+     * Check if user has any inventory access (raw DB query).
+     */
+    public function hasInventoryAccess(): bool
+    {
+        return \DB::table('user_inventory_access')
+            ->where('user_id', $this->id)
+            ->exists();
+    }
+
+    public function assignedWarehouses()
+    {
+        return $this->warehouseAccess();
+    }
+
+    public function scmAccess()
+    {
+        return $this->hasOne(ScmAccessPermission::class);
     }
 
     /**

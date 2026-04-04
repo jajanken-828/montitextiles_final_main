@@ -12,8 +12,8 @@ return new class extends Migration
             $table->id();
             $table->string('mat_id')->unique();   // Auto-generated: MAT-001
             $table->string('name');
-            $table->string('category');
-            $table->string('unit');
+            $table->enum('category', ['Yarn', 'Dye', 'Supplies', 'Packaging']);
+            $table->enum('unit', ['Rolls', 'Kg', 'Pcs']);
             $table->unsignedInteger('reorder_point')->default(0);
             $table->decimal('unit_cost', 12, 2)->default(0);
             $table->timestamps();

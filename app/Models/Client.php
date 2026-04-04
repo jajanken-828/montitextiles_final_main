@@ -7,8 +7,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use App\Models\CrmMeeting;
-use App\Models\CrmFeedback;
 
 class Client extends Authenticatable
 {
@@ -65,19 +63,25 @@ class Client extends Authenticatable
     {
         return $query->where('status', 'active');
     }
+
     public function meetings()
-{
-    return $this->hasMany(CrmMeeting::class);
-}
+    {
+        return $this->hasMany(CrmMeeting::class);
+    }
 
-public function feedback()
-{
-    return $this->hasMany(CrmFeedback::class);
-}
+    public function feedback()
+    {
+        return $this->hasMany(CrmFeedback::class);
+    }
 
-public function creditAccount()
-{
-    // Adjust 'CreditAccount::class' to your actual Credit model name
-    return $this->hasOne(CreditAccount::class); 
-}
+    public function creditAccount()
+    {
+        // Adjust 'CreditAccount::class' to your actual Credit model name
+        return $this->hasOne(CreditAccount::class);
+    }
+
+    public function purchaseOrders()
+    {
+        return $this->hasMany(PurchaseOrder::class);
+    }
 }

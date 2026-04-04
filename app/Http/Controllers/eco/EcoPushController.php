@@ -12,15 +12,39 @@ class EcoPushController extends Controller
 {
     public function index()
     {
-        $salesOrders = PurchaseOrder::where('status', 'approved')
-            ->whereDoesntHave('orderQueue') // not yet pushed
+        // Orders ready to be pushed (approved and no queue entry)
+        $salesOrders = PurchaseOrder::with('client')
+            ->where('status', 'approved')
+            ->whereDoesntHave('orderQueue')
             ->get();
-        return Inertia::render('Dashboard/ECO/Push', ['salesOrders' => $salesOrders]);
+
+        // Orders that have already been pushed (have an orderQueue)
+        $pushedOrders = PurchaseOrder::with('client', 'orderQueue')
+            ->whereHas('orderQueue')
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'po_number' => $order->po_number,
+                    'client' => $order->client,
+                    'total_amount' => $order->total_amount,
+                    'pushed_to' => $order->orderQueue->stage ?? 'SCM / Order Mgmt',
+                    'pushed_at' => $order->orderQueue->created_at,
+                ];
+            });
+
+        // Debug: Log counts to help diagnose
+        \Log::info('Pending push orders: ' . $salesOrders->count());
+        \Log::info('Already pushed orders: ' . $pushedOrders->count());
+
+        return Inertia::render('Dashboard/ECO/Push', [
+            'salesOrders' => $salesOrders,
+            'pushedOrders' => $pushedOrders,
+        ]);
     }
 
     public function pushToSCM(PurchaseOrder $order)
     {
-        // Create queue entry for SCM
         OrderQueue::updateOrCreate(
             ['purchase_order_id' => $order->id],
             ['stage' => 'eco_approved', 'notes' => 'Pushed from ECO']
@@ -30,8 +54,6 @@ class EcoPushController extends Controller
 
     public function pushToOrderManagement(PurchaseOrder $order)
     {
-        // In your system, order management might be a separate module
-        // Here we simply update queue stage
         OrderQueue::updateOrCreate(
             ['purchase_order_id' => $order->id],
             ['stage' => 'eco_approved', 'notes' => 'Forwarded to Order Management']

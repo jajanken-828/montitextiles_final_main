@@ -70,7 +70,8 @@ import {
     ArrowRight,
     Zap,
     Activity,
-    DollarSign
+    DollarSign,
+    Users as UsersIcon
 } from 'lucide-vue-next'
 
 const page = usePage()
@@ -104,17 +105,19 @@ const isHrmOpen = ref(getStored('hrm'))
 const isCrmOpen = ref(getStored('crm'))
 const isEcoOpen = ref(getStored('eco'))
 const isScmOpen = ref(getStored('scm'))
-const isInvOpen = ref(getStored('inv'))
+const isWarehouseOpen = ref(getStored('warehouse'))
+const isInventoryOpen = ref(getStored('inventory'))
 const isProOpen = ref(getStored('pro'))
 const isManOpen = ref(getStored('man'))
-const isOrdOpen = ref(getStored('ord'))  // NEW: Order Management dropdown
+const isOrdOpen = ref(getStored('ord'))
 
 const toggleWorkforceSub = () => { isWorkforceSubOpen.value = !isWorkforceSubOpen.value; setStored('workforce', isWorkforceSubOpen.value) }
 const toggleHrm = () => { isHrmOpen.value = !isHrmOpen.value; setStored('hrm', isHrmOpen.value) }
 const toggleCrm = () => { isCrmOpen.value = !isCrmOpen.value; setStored('crm', isCrmOpen.value) }
 const toggleEco = () => { isEcoOpen.value = !isEcoOpen.value; setStored('eco', isEcoOpen.value) }
 const toggleScm = () => { isScmOpen.value = !isScmOpen.value; setStored('scm', isScmOpen.value) }
-const toggleInv = () => { isInvOpen.value = !isInvOpen.value; setStored('inv', isInvOpen.value) }
+const toggleWarehouse = () => { isWarehouseOpen.value = !isWarehouseOpen.value; setStored('warehouse', isWarehouseOpen.value) }
+const toggleInventory = () => { isInventoryOpen.value = !isInventoryOpen.value; setStored('inventory', isInventoryOpen.value) }
 const togglePro = () => { isProOpen.value = !isProOpen.value; setStored('pro', isProOpen.value) }
 const toggleMan = () => { isManOpen.value = !isManOpen.value; setStored('man', isManOpen.value) }
 const toggleOrd = () => { isOrdOpen.value = !isOrdOpen.value; setStored('ord', isOrdOpen.value) }
@@ -162,7 +165,23 @@ const hasWorkforceAccess = computed(() => {
     return perms && perms.length > 0
 })
 
-// NEW: Check if user has access to Order Management module
+// Warehouse module access
+const hasWarehouseAccess = computed(() => {
+    if (user.value?.role === 'CEO') return true
+    if (user.value?.position === 'secretary') return true
+    if (user.value?.position === 'general_manager') return true
+    return user.value?.has_warehouse_access === true
+})
+
+// Inventory module access
+const hasInventoryAccess = computed(() => {
+    if (user.value?.role === 'CEO') return true
+    if (user.value?.position === 'secretary') return true
+    if (user.value?.position === 'general_manager') return true
+    return user.value?.has_inventory_access === true
+})
+
+// Order Management module access
 const hasOrdAccess = computed(() => {
     if (user.value?.role === 'CEO') return true
     return user.value?.has_ord_access === true
@@ -249,7 +268,7 @@ const navItems = computed(() => {
         }
     }
 
-    // --- CRM Logic (restructured) ---
+    // --- CRM Logic ---
     if (userRole === 'CRM' || userRole === 'CEO') {
         const allCrmPages = [
             { label: 'Dashboard', href: route('crm.dashboard'), icon: LayoutDashboard, id: 'dashboard' },
@@ -280,12 +299,13 @@ const navItems = computed(() => {
         }
     }
 
-    // --- ECO Logic (RESTRUCTURED with new routes) ---
+    // --- ECO Logic ---
     if (userRole === 'ECO' || userRole === 'CEO') {
         const ecoChildren = [
             { label: 'Dashboard', href: route('eco.dashboard'), icon: LayoutDashboard },
             { label: 'Store', href: route('eco.store'), icon: ShoppingBag },
             { label: 'Inquiries', href: route('eco.inquiries'), icon: MessageSquare },
+            { label: 'Suppliers', href: route('eco.suppliers'), icon: UsersIcon },
             { label: 'Credit', href: route('eco.credit'), icon: CreditCard },
             { label: 'Push Center', href: route('eco.push'), icon: Send },
             { label: 'Access Control', href: route('eco.access'), icon: ShieldCheck },
@@ -297,38 +317,68 @@ const navItems = computed(() => {
         }
     }
 
-    // --- SCM Logic ---
+    // --- SCM Logic (Restructured) ---
     if (userRole === 'SCM' || userRole === 'CEO') {
         const scmChildren = [
-            { label: 'Dashboard', href: route('scm.manager.dashboard'), icon: LayoutDashboard },
-            { label: 'Operations', href: route('scm.manager.operations'), icon: RefreshCw },
-            { label: 'Sales Orders', href: route('scm.manager.sales-orders'), icon: ShoppingCart },
-            { label: 'Vendors', href: route('scm.manager.vendor'), icon: Building2 },
-            { label: 'Payments', href: route('scm.manager.payments'), icon: HandCoins },
-            { label: 'Staff Assignment', href: route('scm.manager.assignment'), icon: Users },
-            { label: 'Close Module', href: route('scm.manager.close'), icon: DoorOpen },
+            { label: 'Sales Orders', href: route('scm.sales-orders'), icon: ShoppingCart },
+            { label: 'Procurement Orders', href: route('scm.procurement-orders'), icon: ClipboardList },
+            { label: 'Vendors', href: route('scm.vendors'), icon: Building2 },
         ];
+        // Only CEO sees Access Control page
         if (userRole === 'CEO') {
-            items.push({ label: 'Supply Chain', icon: Truck, isDropdown: true, isOpen: isScmOpen.value, toggle: toggleScm, children: scmChildren });
-        } else {
-            items.push(...scmChildren);
+            scmChildren.push({ label: 'Access Control', href: route('scm.access.index'), icon: ShieldCheck });
         }
+        items.push({
+            label: 'Supply Chain',
+            icon: Truck,
+            isDropdown: true,
+            isOpen: isScmOpen.value,
+            toggle: toggleScm,
+            children: scmChildren
+        });
     }
 
-    // --- INV Logic ---
-    if (userRole === 'INV' || userRole === 'CEO') {
-        const invChildren = [
-            { label: 'Dashboard', href: route('inv.manager.dashboard'), icon: LayoutDashboard },
-            { label: 'Inventory', href: route('inv.manager.inventory'), icon: Boxes },
-            { label: 'Planning', href: route('inv.manager.production-planning'), icon: TrendingUp },
-            { label: 'Materials', href: route('inv.manager.material'), icon: Spool },
-            { label: 'Products', href: route('inv.manager.product'), icon: Package },
+    // --- Warehouse Management Module ---
+    if (hasWarehouseAccess.value) {
+        const warehouseChildren = [
+            { label: 'All Warehouses', href: route('warehouse.index'), icon: Warehouse },
+            { label: 'Receiving', href: route('warehouse.receiving'), icon: Truck },
+            { label: 'Packages', href: route('warehouse.packages'), icon: Package },
+            { label: 'Rejects', href: route('warehouse.rejects'), icon: XCircle },
         ];
         if (userRole === 'CEO') {
-            items.push({ label: 'Inventory', icon: Boxes, isDropdown: true, isOpen: isInvOpen.value, toggle: toggleInv, children: invChildren });
-        } else {
-            items.push(...invChildren);
+            warehouseChildren.push({ label: 'Access Control', href: route('warehouse.access'), icon: ShieldCheck });
         }
+        items.push({
+            label: 'Warehouse',
+            icon: Warehouse,
+            isDropdown: true,
+            isOpen: isWarehouseOpen.value,
+            toggle: toggleWarehouse,
+            children: warehouseChildren
+        });
+    }
+
+    // --- Inventory Management Module ---
+    if (hasInventoryAccess.value) {
+        const inventoryChildren = [
+            { label: 'Dashboard', href: route('inv.dashboard'), icon: LayoutDashboard },
+            { label: 'Materials', href: route('inv.materials'), icon: Spool },
+            { label: 'Products', href: route('inv.products'), icon: Package },
+            { label: 'Bill of Materials', href: route('inv.bom'), icon: Layers },
+            { label: 'Stock Checker', href: route('inv.checker'), icon: AlertCircle },
+        ];
+        if (userRole === 'CEO') {
+            inventoryChildren.push({ label: 'Access Control', href: route('inv.access'), icon: ShieldCheck });
+        }
+        items.push({
+            label: 'Inventory',
+            icon: Boxes,
+            isDropdown: true,
+            isOpen: isInventoryOpen.value,
+            toggle: toggleInventory,
+            children: inventoryChildren
+        });
     }
 
     // --- PRO Logic ---
@@ -363,14 +413,13 @@ const navItems = computed(() => {
         }
     }
 
-    // --- NEW: Order Management (ORD) Logic ---
+    // --- Order Management (ORD) Logic ---
     if (hasOrdAccess.value) {
         const ordChildren = [
             { label: 'Orders', href: route('ord.orders'), icon: ClipboardList },
             { label: 'Productions', href: route('ord.productions'), icon: Factory },
             { label: 'Delivery', href: route('ord.delivery'), icon: Truck },
         ];
-        // Only CEO sees Access Control page
         if (userRole === 'CEO') {
             ordChildren.push({ label: 'Access Control', href: route('ord.access.index'), icon: ShieldCheck });
         }

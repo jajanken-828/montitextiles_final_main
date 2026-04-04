@@ -10,10 +10,7 @@ use App\Http\Controllers\client\ClientProductsController;
 use App\Http\Controllers\client\ClientProfileController;
 use App\Http\Controllers\client\ClientReceivingController;
 use App\Http\Controllers\client\ClientSupportController;
-use App\Http\Controllers\client\InvoicesController;
 use App\Http\Controllers\client\OrdersController;
-use App\Http\Controllers\client\ProductController as ClientProductController;
-use App\Http\Controllers\client\SupportController;
 use App\Http\Controllers\crm\AccessController as CrmAccessController;
 use App\Http\Controllers\crm\ApprovalController;
 use App\Http\Controllers\crm\CrmDashboardController;
@@ -29,6 +26,7 @@ use App\Http\Controllers\eco\EcoDashboardController;
 use App\Http\Controllers\eco\EcoInquiryController;
 use App\Http\Controllers\eco\EcoPushController;
 use App\Http\Controllers\eco\EcoStoreController;
+use App\Http\Controllers\eco\EcoSupplierController;
 use App\Http\Controllers\fin\FinDashboardController;
 use App\Http\Controllers\hrm\AccessController;
 use App\Http\Controllers\hrm\AnalyticsController;
@@ -39,11 +37,12 @@ use App\Http\Controllers\hrm\InterviewController;
 use App\Http\Controllers\hrm\OnboardingController;
 use App\Http\Controllers\hrm\PayrollController;
 use App\Http\Controllers\hrm\TraineeController;
+use App\Http\Controllers\inv\BomController;
+use App\Http\Controllers\inv\CheckerController;
+use App\Http\Controllers\inv\InvAccessController;
 use App\Http\Controllers\inv\InvDashboardController;
-use App\Http\Controllers\inv\InventoryController as InvInventoryController;
-use App\Http\Controllers\inv\manager\ProductionPlanningController;
 use App\Http\Controllers\inv\MaterialController;
-use App\Http\Controllers\inv\ProductController as InvProductController;
+use App\Http\Controllers\inv\ProductController;
 use App\Http\Controllers\it\ItDashboardController;
 use App\Http\Controllers\man\Manager\ManufacturingManagerController;
 use App\Http\Controllers\man\ManDashboardController;
@@ -56,25 +55,18 @@ use App\Http\Controllers\man\Staff\DyeingPackagingController;
 use App\Http\Controllers\man\Staff\DyeingSqueezerController;
 use App\Http\Controllers\man\Staff\KnittingYarnController;
 use App\Http\Controllers\man\Staff\MaintenanceCheckerController;
-
+use App\Http\Controllers\ord\OrdAccessController;
+use App\Http\Controllers\ord\OrdDeliveryController;
 use App\Http\Controllers\ord\OrdOrdersController;
 use App\Http\Controllers\ord\OrdProductionsController;
-use App\Http\Controllers\ord\OrdDeliveryController;
-use App\Http\Controllers\ord\OrdAccessController;
 use App\Http\Controllers\pro\manager\ProcurementController;
 use App\Http\Controllers\pro\ProDashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\proj\ProjDashboardController;
-use App\Http\Controllers\scm\employee\InboundController;
-use App\Http\Controllers\scm\employee\InventoryController as ScmInventoryController;
-use App\Http\Controllers\scm\employee\RecievingController;
-use App\Http\Controllers\scm\employee\VerificationController;
-use App\Http\Controllers\scm\manager\CloseController;
-use App\Http\Controllers\scm\manager\PaymentController;
-use App\Http\Controllers\scm\manager\SalesOrderController;
-use App\Http\Controllers\scm\manager\ScmManagerController;
-use App\Http\Controllers\scm\manager\VendorController;
-use App\Http\Controllers\scm\ScmDashboardController;
+use App\Http\Controllers\scm\ScmAccessController;
+use App\Http\Controllers\scm\ScmProcurementOrderController;
+use App\Http\Controllers\scm\ScmSalesOrderController;
+use App\Http\Controllers\scm\ScmVendorController;
 use App\Http\Controllers\SUPPLIERS\SupplierDashboardController;
 use App\Http\Controllers\trainee\TraineeAttendanceController;
 use App\Http\Controllers\trainee\TraineePayslipController;
@@ -82,7 +74,12 @@ use App\Http\Controllers\trainee\TraineeTimeKeepingController;
 use App\Http\Controllers\users\AppController;
 use App\Http\Controllers\users\ClockController;
 use App\Http\Controllers\users\leaveController as UserLeaveController;
-use App\Http\Controllers\war\WarDashboardController;
+use App\Http\Controllers\warehouse\AccessController as WarehouseAccessController;
+use App\Http\Controllers\warehouse\MonitorController;
+use App\Http\Controllers\warehouse\PackageController;
+use App\Http\Controllers\warehouse\ReceivingController;
+use App\Http\Controllers\warehouse\RejectController;
+use App\Http\Controllers\warehouse\WarehouseController;
 use App\Http\Controllers\workforce\AbsentController;
 use App\Http\Controllers\workforce\AccessController as WorkforceAccessController;
 use App\Http\Controllers\workforce\LeaveController as WorkforceLeaveController;
@@ -218,50 +215,27 @@ Route::prefix('dashboard/workforce')->name('workforce.')->middleware(['auth', 'v
 
 /*
 |--------------------------------------------------------------------------
-| Supply Chain Management (SCM) Routes
+| Supply Chain Management (SCM) Routes - RESTRUCTURED
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/scm')->name('scm.')->middleware(['auth', 'verified'])->group(function () {
-    Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
-    Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
-    Route::get('/access', [AccessController::class, 'index'])->name('access.index');
-    Route::post('/access/update', [AccessController::class, 'update'])->name('access.update');
+Route::prefix('dashboard/scm')->name('scm.')->middleware(['auth', 'verified', 'can.access.scm'])->group(function () {
+    // Sales Orders (from ECO)
+    Route::get('/sales-orders', [ScmSalesOrderController::class, 'index'])->name('sales-orders');
+    Route::post('/sales-orders/{order}/check-inventory', [ScmSalesOrderController::class, 'checkInventory'])->name('sales-order.check-inventory');
+    Route::post('/sales-orders/{order}/push-to-production', [ScmSalesOrderController::class, 'pushToProduction'])->name('sales-order.push-to-production');
 
-    Route::middleware(['role:SCM', 'position:manager'])->group(function () {
-        Route::get('/manager', [ScmDashboardController::class, 'managerDashboard'])->name('manager.dashboard');
-        Route::get('/operations', [ScmDashboardController::class, 'operations'])->name('manager.operations');
-        Route::get('/sales-orders', [SalesOrderController::class, 'index'])->name('manager.sales-orders');
-        Route::post('/sales-orders/{order}/forward-to-inv', [SalesOrderController::class, 'forwardToINV'])->name('manager.sales-orders.forward');
-        Route::post('/material-requests/{id}/forward', [ScmManagerController::class, 'forwardMaterialRequest'])->name('manager.material-request.forward');
-        Route::get('/assignment', [ScmManagerController::class, 'assignment'])->name('manager.assignment');
-        Route::post('/staff/{id}/update-role', [ScmManagerController::class, 'updateRole'])->name('manager.update-staff-role');
-        Route::post('/orders/{order}/approve-manufacturing', [ScmManagerController::class, 'approveManufacturing'])->name('manager.approve-manufacturing');
-        Route::post('/orders/{order}/recheck', [ScmManagerController::class, 'recheckOrder'])->name('manager.order.recheck');
-        Route::get('/manager/payments', [PaymentController::class, 'index'])->name('manager.payments');
-        Route::post('/payments', [PaymentController::class, 'processPayment'])->name('manager.payments.process');
+    // Procurement Orders (requests from Inventory)
+    Route::get('/procurement-orders', [ScmProcurementOrderController::class, 'index'])->name('procurement-orders');
+    Route::post('/procurement-orders/{materialRequest}/send', [ScmProcurementOrderController::class, 'sendToProcurementModule'])->name('procurement-order.send');
 
-        Route::prefix('vendor')->group(function () {
-            Route::get('/', [VendorController::class, 'vendor'])->name('manager.vendor');
-            Route::post('/register', [VendorController::class, 'register'])->name('manager.vendor.register');
-            Route::get('/registrations', [VendorController::class, 'getRegistrations'])->name('manager.vendor.registrations');
-            Route::get('/registrations/{id}', [VendorController::class, 'getRegistration'])->name('manager.vendor.registration.show');
-            Route::post('/registrations/{id}/approve', [VendorController::class, 'approve'])->name('manager.vendor.approve');
-            Route::post('/registrations/{id}/reject', [VendorController::class, 'reject'])->name('manager.vendor.reject');
-            Route::post('/registrations/{id}/requirements', [VendorController::class, 'setRequirements'])->name('manager.vendor.requirements.store');
-            Route::get('/registrations/{id}/requirements', [VendorController::class, 'getRequirements'])->name('manager.vendor.requirements.show');
-            Route::get('/my-registration', [VendorController::class, 'getMyRegistration'])->name('manager.vendor.my-registration');
-        });
+    // Vendor Management
+    Route::get('/vendors', [ScmVendorController::class, 'index'])->name('vendors');
+    Route::post('/vendors/{registration}/approve', [ScmVendorController::class, 'approve'])->name('vendors.approve');
+    Route::post('/vendors/{registration}/reject', [ScmVendorController::class, 'reject'])->name('vendors.reject');
 
-        Route::get('/close', [CloseController::class, 'close'])->name('manager.close');
-    });
-
-    Route::middleware(['role:SCM', 'position:staff'])->group(function () {
-        Route::get('/staff', [ScmDashboardController::class, 'staffDashboard'])->name('employee.dashboard');
-        Route::get('/inbound', [InboundController::class, 'inbound'])->name('employee.inbound');
-        Route::get('/inventory', [ScmInventoryController::class, 'inventory'])->name('employee.inventory');
-        Route::get('/recieving', [RecievingController::class, 'recieving'])->name('employee.recieving');
-        Route::get('/verification', [VerificationController::class, 'verification'])->name('employee.verification');
-    });
+    // Access Control (CEO only)
+    Route::get('/access', [ScmAccessController::class, 'index'])->name('access.index');
+    Route::post('/access/update', [ScmAccessController::class, 'update'])->name('access.update');
 });
 
 /*
@@ -390,66 +364,60 @@ Route::prefix('dashboard/man')->name('man.')->middleware(['auth', 'verified'])->
 
 /*
 |--------------------------------------------------------------------------
-| Inventory & Warehousing (INV) Routes
+| Warehouse Module (Restructured)
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/inv')->name('inv.')->middleware(['auth', 'verified'])->group(function () {
-    Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
-    Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
-    Route::get('/access', [AccessController::class, 'index'])->name('access.index');
+Route::prefix('dashboard/warehouse')->name('warehouse.')->middleware(['auth', 'verified', 'can.access.warehouse'])->group(function () {
+    Route::get('/', [WarehouseController::class, 'index'])->name('index');
+    Route::post('/', [WarehouseController::class, 'store'])->name('store');
+    Route::put('/{warehouse}', [WarehouseController::class, 'update'])->name('update');
+    Route::delete('/{warehouse}', [WarehouseController::class, 'destroy'])->name('destroy');
 
-    Route::get('/manager', [InvDashboardController::class, 'managerDashboard'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.dashboard');
+    Route::get('/receiving', [ReceivingController::class, 'index'])->name('receiving');
+    Route::post('/receiving', [ReceivingController::class, 'receive'])->name('receiving.store');
 
-    Route::get('/staff', [InvDashboardController::class, 'staffDashboard'])
-        ->middleware(['role:INV', 'position:staff'])
-        ->name('employee.dashboard');
+    Route::get('/monitor/{warehouse}', [MonitorController::class, 'show'])->name('monitor');
+    Route::post('/monitor/layout/{warehouse}', [MonitorController::class, 'updateLayout'])->name('monitor.layout');
+    Route::post('/monitor/assign', [MonitorController::class, 'assignToShelf'])->name('monitor.assign');
+    Route::post('/monitor/use/{stockItem}', [MonitorController::class, 'useMaterial'])->name('monitor.use');
 
-    Route::get('/production-planning', [ProductionPlanningController::class, 'index'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.production-planning');
-    Route::post('/production-planning/{order}/check', [ProductionPlanningController::class, 'checkAvailability'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.production-planning.check');
+    Route::get('/packages', [PackageController::class, 'index'])->name('packages');
+    Route::post('/packages/{package}/push', [PackageController::class, 'pushToLogistics'])->name('packages.push');
 
-    Route::get('/inventory', [InvInventoryController::class, 'inventory'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.inventory');
-    Route::post('/inventory/receive', [InvInventoryController::class, 'receiveDelivery'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.inventory.receive');
-    Route::post('/warehouse', [InvInventoryController::class, 'storeWarehouse'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.warehouse.store');
-    Route::post('/inventory/item', [InvInventoryController::class, 'storeItem'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.inventory.item.store');
-    Route::delete('/inventory/item/{wmId}', [InvInventoryController::class, 'destroyItem'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.inventory.item.destroy');
+    Route::get('/rejects', [RejectController::class, 'index'])->name('rejects');
 
-    Route::post('/material/procurement', [MaterialController::class, 'requestProcurement'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.material.procurement');
-    Route::get('/material', [MaterialController::class, 'material'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.material');
-    Route::post('/material', [MaterialController::class, 'store'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.material.store');
-    Route::delete('/material/{id}', [MaterialController::class, 'destroy'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.material.destroy');
-    Route::post('/material/delegate', [MaterialController::class, 'delegate'])
-        ->middleware(['role:INV', 'position:manager'])
-        ->name('manager.material.delegate');
+    Route::get('/access', [WarehouseAccessController::class, 'index'])->name('access');
+    Route::post('/access/update', [WarehouseAccessController::class, 'update'])->name('access.update');
+});
 
-    Route::get('/product', [InvProductController::class, 'product'])->name('manager.product');
-    Route::post('/product', [InvProductController::class, 'store'])->name('manager.product.store');
-    Route::post('/product/{id}/update', [InvProductController::class, 'update'])->name('manager.product.update');
-    Route::delete('/product/image/{imageId}', [InvProductController::class, 'destroyImage'])->name('manager.product.image.destroy');
-    Route::delete('/product/{id}', [InvProductController::class, 'destroy'])->name('manager.product.destroy');
+/*
+|--------------------------------------------------------------------------
+| Inventory Module (Restructured)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('dashboard/inventory')->name('inv.')->middleware(['auth', 'verified', 'can.access.inventory'])->group(function () {
+    Route::get('/', [InvDashboardController::class, 'managerDashboard'])->name('dashboard');
+    Route::get('/materials', [MaterialController::class, 'material'])->name('materials');
+    Route::post('/materials', [MaterialController::class, 'store'])->name('materials.store');
+    Route::delete('/materials/{id}', [MaterialController::class, 'destroy'])->name('materials.destroy');
+
+    Route::get('/products', [ProductController::class, 'product'])->name('products');
+    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+    Route::post('/products/{id}', [ProductController::class, 'update'])->name('products.update');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::delete('/products/image/{imageId}', [ProductController::class, 'destroyImage'])->name('products.image.destroy');
+
+    Route::get('/bom', [BomController::class, 'index'])->name('bom');
+    Route::post('/bom', [BomController::class, 'store'])->name('bom.store');
+    Route::put('/bom/{id}', [BomController::class, 'update'])->name('bom.update');
+    Route::delete('/bom/{id}', [BomController::class, 'destroy'])->name('bom.destroy');
+
+    Route::get('/checker', [CheckerController::class, 'index'])->name('checker');
+    Route::post('/checker/procurement/{material}', [CheckerController::class, 'requestProcurement'])->name('checker.procurement');
+    Route::post('/checker/order/{order}', [CheckerController::class, 'checkOrder'])->name('checker.order');
+
+    Route::get('/access', [InvAccessController::class, 'index'])->name('access');
+    Route::post('/access/update', [InvAccessController::class, 'update'])->name('access.update');
 });
 
 /*
@@ -464,7 +432,6 @@ Route::prefix('dashboard/ord')->name('ord.')->middleware(['auth', 'verified', 'c
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
     Route::post('/access/update', [AccessController::class, 'update'])->name('access.update');
 
-
     // NEW Order Management Core Pages
     Route::get('/orders', [OrdOrdersController::class, 'index'])->name('orders');
     Route::get('/productions', [OrdProductionsController::class, 'index'])->name('productions');
@@ -474,25 +441,6 @@ Route::prefix('dashboard/ord')->name('ord.')->middleware(['auth', 'verified', 'c
     // Access Control (CEO only)
     Route::get('/access-control', [OrdAccessController::class, 'index'])->name('access.index');
     Route::post('/access-control/update', [OrdAccessController::class, 'update'])->name('access.update');
-});
-
-/*
-|--------------------------------------------------------------------------
-| Warehouse Dispatch (WAR) Routes
-|--------------------------------------------------------------------------
-*/
-Route::prefix('dashboard/war')->name('war.')->middleware(['auth', 'verified'])->group(function () {
-    Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
-    Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
-    Route::get('/access', [AccessController::class, 'index'])->name('access.index');
-
-    Route::get('/manager', [WarDashboardController::class, 'managerDashboard'])
-        ->middleware(['role:WAR', 'position:manager'])
-        ->name('manager.dashboard');
-
-    Route::get('/staff', [WarDashboardController::class, 'staffDashboard'])
-        ->middleware(['role:WAR', 'position:staff'])
-        ->name('employee.dashboard');
 });
 
 /*
@@ -555,6 +503,9 @@ Route::prefix('dashboard/eco')->name('eco.')->middleware(['auth', 'verified', 'c
     Route::get('/clients/{client}/credit-check', [EcoInquiryController::class, 'creditCheck'])->name('credit.check');
     // Credit ledger
     Route::get('/credit', [EcoCreditController::class, 'index'])->name('credit');
+    Route::post('/credit/approve/{order}', [EcoCreditController::class, 'approveCreditReview'])->name('credit.approve');
+    Route::post('/credit/approve/{order}', [EcoCreditController::class, 'approveOrder'])->name('credit.approve');
+    Route::post('/credit/reject/{order}', [EcoCreditController::class, 'rejectOrder'])->name('credit.reject');
     // Push to SCM / Order Management
     Route::get('/push', [EcoPushController::class, 'index'])->name('push');
     Route::post('/push/scm/{order}', [EcoPushController::class, 'pushToSCM'])->name('push.scm');
@@ -562,6 +513,15 @@ Route::prefix('dashboard/eco')->name('eco.')->middleware(['auth', 'verified', 'c
     // Access control (only CEO)
     Route::get('/access', [EcoAccessController::class, 'index'])->name('access');
     Route::post('/access/update', [EcoAccessController::class, 'update'])->name('access.update');
+
+    // Inside ECO route group
+    Route::get('/suppliers', [EcoSupplierController::class, 'index'])->name('suppliers');
+    Route::get('/suppliers/{supplier}/conversation', [EcoSupplierController::class, 'conversation'])->name('supplier.conversation');
+    Route::post('/suppliers/{supplier}/message', [EcoSupplierController::class, 'sendMessage'])->name('supplier.message');
+    Route::post('/suppliers/{supplier}/meeting', [EcoSupplierController::class, 'setMeeting'])->name('supplier.meeting');
+    Route::get('/suppliers/{supplier}/credit-check', [EcoSupplierController::class, 'creditCheck'])->name('supplier.credit-check');
+    Route::post('/suppliers/{supplier}/request', [EcoSupplierController::class, 'sendRequest'])->name('supplier.request');
+    Route::get('/suppliers/{supplier}/conversation', [EcoSupplierController::class, 'conversation'])->name('supplier.conversation');
 });
 
 /*
@@ -668,8 +628,8 @@ Route::middleware('auth:client')->prefix('partner')->name('client.')->group(func
     Route::get('/conversations', [ClientConversationController::class, 'index'])->name('conversations');
     Route::get('/conversations/{inquiry}', [ClientConversationController::class, 'show'])->name('conversation.show');
     Route::post('/conversations/{inquiry}/message', [ClientConversationController::class, 'sendMessage'])->name('conversation.message');
-    Route::post('/quotations/{quotation}/accept', [ClientConversationController::class, 'acceptQuotation'])->name('quotation.accept');
-    Route::post('/quotations/{quotation}/reject', [ClientConversationController::class, 'rejectQuotation'])->name('quotation.reject');
+    Route::post('/quotations/{quotation}/accept', [ClientConversationController::class, 'acceptQuotation'])->name('client.quotation.accept');
+    Route::post('/quotations/{quotation}/reject', [ClientConversationController::class, 'rejectQuotation'])->name('client.quotation.reject');
     // Orders & Invoices (legacy support)
     Route::get('/orders', [OrdersController::class, 'orders'])->name('orders');
     Route::post('/orders/{order}/accept', [OrdersController::class, 'acceptPurchaseOrder'])->name('orders.accept');

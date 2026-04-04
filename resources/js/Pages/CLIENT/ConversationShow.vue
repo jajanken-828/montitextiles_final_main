@@ -3,7 +3,6 @@
     <AuthenticatedLayout>
         <div class="max-w-[1600px] mx-auto space-y-8 p-4 lg:p-8">
 
-            <!-- Header with back button -->
             <div class="flex items-center gap-4">
                 <Link :href="route('client.conversations')" class="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition">
                     <ArrowLeft class="h-5 w-5" />
@@ -18,10 +17,8 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                <!-- Main conversation area -->
                 <div class="lg:col-span-2 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-280px)]">
                     
-                    <!-- Messages -->
                     <div ref="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4">
                         <div v-for="msg in inquiry.messages" :key="msg.id" class="flex" :class="msg.sender_type === 'client' ? 'justify-end' : 'justify-start'">
                             <div :class="msg.sender_type === 'client' 
@@ -48,7 +45,6 @@
                         </div>
                     </div>
 
-                    <!-- Message input -->
                     <div class="border-t border-gray-100 dark:border-gray-800 p-4">
                         <form @submit.prevent="sendMessage" class="flex gap-3">
                             <input v-model="newMessage" type="text" placeholder="Type your message..." 
@@ -65,7 +61,6 @@
                     </div>
                 </div>
 
-                <!-- Sidebar: Quotations -->
                 <div class="space-y-6">
                     <div v-if="quotations.length === 0" class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 text-center text-gray-500">
                         <FileText class="h-10 w-10 mx-auto mb-2 opacity-50" />
@@ -100,7 +95,6 @@
                                 {{ quotation.custom_notes }}
                             </div>
                             
-                            <!-- Action buttons (only for pending quotations) -->
                             <div v-if="quotation.status === 'sent'" class="flex gap-2 mt-4">
                                 <button @click="openRejectModal(quotation)" class="flex-1 px-3 py-2 border border-red-300 text-red-600 rounded-lg text-xs font-bold hover:bg-red-50">
                                     Reject
@@ -115,7 +109,6 @@
             </div>
         </div>
 
-        <!-- Reject Quotation Modal -->
         <Teleport to="body">
             <div v-if="rejectModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" @click.self="rejectModal.show = false">
                 <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
@@ -127,14 +120,14 @@
                         <div>
                             <label class="block text-xs font-black uppercase text-gray-500 mb-1">Reason for rejection *</label>
                             <textarea v-model="rejectModal.reason" rows="3" required
-                                class="w-full rounded-xl border-gray-200 p-3 text-sm"
+                                class="w-full rounded-xl border-gray-200 p-3 text-sm focus:ring-red-500 dark:bg-gray-800 dark:border-gray-700"
                                 placeholder="e.g., Price too high, delivery date not suitable..."></textarea>
                         </div>
                         <div class="flex items-center gap-2">
-                            <input type="checkbox" v-model="rejectModal.requestNew" id="requestNew" class="rounded border-gray-300">
-                            <label for="requestNew" class="text-sm font-medium">Request a new quotation (ECO will revise)</label>
+                            <input type="checkbox" v-model="rejectModal.requestNew" id="requestNew" class="rounded border-gray-300 text-red-600 focus:ring-red-500">
+                            <label for="requestNew" class="text-sm font-medium dark:text-gray-300">Request a new quotation (ECO will revise)</label>
                         </div>
-                        <div class="bg-gray-50 p-3 rounded-xl text-xs text-gray-600">
+                        <div class="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl text-xs text-gray-600 dark:text-gray-400">
                             <p class="font-bold">Note:</p>
                             <p>If you request a new quotation, ECO will send an updated version. Otherwise, this inquiry will be marked as abandoned.</p>
                         </div>
@@ -147,7 +140,6 @@
             </div>
         </Teleport>
 
-        <!-- Toast Notification -->
         <Transition name="toast">
             <div v-if="toast.show" class="fixed bottom-8 right-8 z-50 px-6 py-3 rounded-xl shadow-lg text-white font-bold text-sm"
                 :class="toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'">
@@ -175,7 +167,6 @@ const isTyping = ref(false);
 const fileInput = ref(null);
 const toast = ref({ show: false, type: 'success', message: '' });
 
-// Reject modal state
 const rejectModal = ref({
     show: false,
     quotation: null,
@@ -197,49 +188,65 @@ const showToast = (type, message) => {
     setTimeout(() => { toast.value.show = false; }, 3000);
 };
 
-const sendMessage = async () => {
+const sendMessage = () => {
     if (!newMessage.value.trim()) return;
     sending.value = true;
-    try {
-        await router.post(route('client.conversation.message', props.inquiry.id), { message: newMessage.value });
-        newMessage.value = '';
-        scrollToBottom();
-    } catch (error) {
-        showToast('error', 'Failed to send message.');
-    } finally {
-        sending.value = false;
-    }
+    // Direct URL to avoid Ziggy parameter issues
+    const url = `/partner/conversations/${props.inquiry.id}/message`;
+    router.post(url, {
+        message: newMessage.value
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            newMessage.value = '';
+            scrollToBottom();
+        },
+        onError: (errors) => {
+            showToast('error', errors.message || 'Failed to send message.');
+        },
+        onFinish: () => {
+            sending.value = false;
+        }
+    });
 };
 
 const triggerFileUpload = () => {
     fileInput.value.click();
 };
 
-const uploadAttachment = async (e) => {
+const uploadAttachment = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const formData = new FormData();
     formData.append('attachment', file);
     formData.append('message', 'Sent an attachment');
-    try {
-        await router.post(route('client.conversation.message', props.inquiry.id), formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        scrollToBottom();
-    } catch (error) {
-        showToast('error', 'Failed to upload attachment.');
-    }
+    const url = `/partner/conversations/${props.inquiry.id}/message`;
+    router.post(url, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        preserveScroll: true,
+        onSuccess: () => {
+            scrollToBottom();
+        },
+        onError: (errors) => {
+            showToast('error', errors.message || 'Failed to upload attachment.');
+        }
+    });
     fileInput.value.value = '';
 };
 
-const acceptQuotation = async (quotation) => {
+const acceptQuotation = (quotation) => {
     if (!confirm('Accept this quotation? This will create a purchase order.')) return;
-    try {
-        await router.post(route('client.quotation.accept', quotation.id));
-        showToast('success', 'Quotation accepted! Order has been created.');
-    } catch (error) {
-        showToast('error', 'Failed to accept quotation.');
-    }
+    const url = `/partner/quotations/${quotation.id}/accept`;
+    router.post(url, {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showToast('success', 'Quotation accepted! Order has been created.');
+            router.reload({ only: ['quotations'] });
+        },
+        onError: (errors) => {
+            showToast('error', errors.message || 'Failed to accept quotation.');
+        }
+    });
 };
 
 const openRejectModal = (quotation) => {
@@ -252,24 +259,36 @@ const openRejectModal = (quotation) => {
     };
 };
 
-const submitReject = async () => {
+const submitReject = () => {
+    if (!rejectModal.value.quotation) return;
+    
     if (!rejectModal.value.reason.trim()) {
         showToast('error', 'Please provide a reason for rejection.');
         return;
     }
+
     rejectModal.value.submitting = true;
-    try {
-        await router.post(route('client.quotation.reject', rejectModal.value.quotation.id), {
-            reason: rejectModal.value.reason,
-            request_new: rejectModal.value.requestNew
-        });
-        rejectModal.value.show = false;
-        showToast('success', rejectModal.value.requestNew ? 'Request for new quotation sent.' : 'Quotation rejected.');
-    } catch (error) {
-        showToast('error', 'Failed to reject quotation.');
-    } finally {
-        rejectModal.value.submitting = false;
-    }
+    
+    const url = `/partner/quotations/${rejectModal.value.quotation.id}/reject`;
+    
+    router.post(url, {
+        reason: rejectModal.value.reason,
+        request_new: rejectModal.value.requestNew
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            rejectModal.value.show = false;
+            showToast('success', rejectModal.value.requestNew ? 'Request for new quotation sent.' : 'Quotation rejected.');
+            router.reload({ only: ['quotations'] });
+        },
+        onError: (errors) => {
+            const errorMsg = errors.error || errors.message || Object.values(errors)[0] || 'Failed to reject quotation.';
+            showToast('error', errorMsg);
+        },
+        onFinish: () => {
+            rejectModal.value.submitting = false;
+        }
+    });
 };
 
 const formatPrice = (val) => Number(val).toLocaleString('en-PH', { minimumFractionDigits: 2 });

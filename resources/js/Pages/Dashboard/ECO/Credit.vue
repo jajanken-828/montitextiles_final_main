@@ -14,7 +14,7 @@
                         Credit <span class="text-indigo-600">Ledger</span>
                     </h1>
                     <p class="text-sm font-medium text-gray-500 italic">
-                        Monitor client outstanding balances and payment history before approving new inquiries.
+                        Monitor client outstanding balances, approve pending credit reviews, and view order history.
                     </p>
                 </div>
                 <button @click="refreshData" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
@@ -39,6 +39,56 @@
                 <div class="bg-white dark:bg-gray-900 p-7 rounded-[2.5rem] border border-gray-100 dark:border-gray-800">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Clients</p>
                     <p class="text-3xl font-black text-gray-900 dark:text-white mt-1">{{ clients.length }}</p>
+                </div>
+            </div>
+
+            <!-- Pending Credit Reviews Section -->
+            <div v-if="pendingCreditReviews.length > 0" class="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-amber-200 dark:border-amber-800 shadow-sm overflow-hidden">
+                <div class="px-8 py-5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+                    <div class="flex items-center gap-2">
+                        <AlertCircle class="h-5 w-5 text-amber-600" />
+                        <h2 class="text-sm font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                            Pending Credit Review ({{ pendingCreditReviews.length }})
+                        </h2>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50/50 dark:bg-gray-800/30 text-[10px] font-black uppercase text-gray-400 tracking-[0.15em]">
+                            <tr>
+                                <th class="px-8 py-5">PO Number</th>
+                                <th class="px-8 py-5">Client</th>
+                                <th class="px-8 py-5 text-right">Total Amount</th>
+                                <th class="px-8 py-5 text-center">Order Date</th>
+                                <th class="px-8 py-5 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+                            <tr v-for="order in pendingCreditReviews" :key="order.id" class="group hover:bg-gray-50/50 transition-all">
+                                <td class="px-8 py-6">
+                                    <span class="font-mono text-sm font-black text-gray-900 dark:text-white">{{ order.po_number }}</span>
+                                </td>
+                                <td class="px-8 py-6">
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                            <Building2 class="h-4 w-4 text-indigo-600" />
+                                        </div>
+                                        <span class="text-sm font-bold">{{ order.client?.company_name }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-8 py-6 text-right font-black text-gray-900">₱{{ formatCurrency(order.total_amount) }}</td>
+                                <td class="px-8 py-6 text-center text-xs text-gray-500">{{ formatDate(order.created_at) }}</td>
+                                <td class="px-8 py-6 text-center">
+                                    <button @click="approveCreditReview(order)" :disabled="approving[order.id]"
+                                        class="inline-flex items-center gap-1 px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-emerald-700 transition disabled:opacity-50">
+                                        <CheckCircle v-if="!approving[order.id]" class="h-3 w-3" />
+                                        <Loader2 v-else class="h-3 w-3 animate-spin" />
+                                        {{ approving[order.id] ? 'Approving...' : 'Approve' }}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -151,6 +201,13 @@
                 </div>
             </div>
         </Teleport>
+
+        <Transition name="toast">
+            <div v-if="toast.show" class="fixed bottom-8 right-8 z-50 px-6 py-3 rounded-xl shadow-lg text-white font-bold text-sm"
+                :class="toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'">
+                {{ toast.message }}
+            </div>
+        </Transition>
     </AuthenticatedLayout>
 </template>
 
@@ -158,19 +215,19 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import { CreditCard, RefreshCw, Search, Building2, History, X } from 'lucide-vue-next';
+import { CreditCard, RefreshCw, Search, Building2, History, X, AlertCircle, CheckCircle, Loader2 } from 'lucide-vue-next';
 
 const props = defineProps({
-    clients: {
-        type: Array,
-        default: () => []
-    }
+    clients: { type: Array, default: () => [] },
+    pendingCreditReviews: { type: Array, default: () => [] }
 });
 
 const searchTerm = ref('');
 const filterStatus = ref('all');
 const showHistoryModal = ref(false);
 const selectedClient = ref(null);
+const approving = ref({});
+const toast = ref({ show: false, type: 'success', message: '' });
 
 const filteredClients = computed(() => {
     let list = props.clients;
@@ -201,18 +258,48 @@ const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
+const showToast = (type, message) => {
+    toast.value = { show: true, type, message };
+    setTimeout(() => { toast.value.show = false; }, 3000);
+};
+
 const openHistoryModal = (client) => {
     selectedClient.value = client;
     showHistoryModal.value = true;
 };
 
+const approveCreditReview = (order) => {
+    if (!confirm(`Approve order ${order.po_number}? This will move it to the Push Center.`)) return;
+    approving.value[order.id] = true;
+    router.post(route('eco.credit.approve', order.id), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showToast('success', `Order ${order.po_number} approved.`);
+            refreshData();
+        },
+        onError: (errors) => {
+            showToast('error', errors.error || 'Failed to approve order.');
+        },
+        onFinish: () => {
+            approving.value[order.id] = false;
+        }
+    });
+};
+
 const refreshData = () => {
-    router.reload({ only: ['clients'] });
+    router.reload({ only: ['clients', 'pendingCreditReviews'] });
 };
 </script>
 
 <style scoped>
 .tracking-tighter {
     letter-spacing: -0.05em;
+}
+.toast-enter-active, .toast-leave-active {
+    transition: all 0.3s ease;
+}
+.toast-enter-from, .toast-leave-to {
+    opacity: 0;
+    transform: translateY(20px);
 }
 </style>

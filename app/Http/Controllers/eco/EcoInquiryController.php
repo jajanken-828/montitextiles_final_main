@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\eco;
 
 use App\Http\Controllers\Controller;
-use App\Models\eco\Inquiry;
-use App\Models\eco\ConversationMessage;
+use App\Models\Client;
 use App\Models\ClientQuotation;
 use App\Models\ClientQuotationItem;
+use App\Models\eco\ConversationMessage;
+use App\Models\eco\Inquiry;
+use App\Models\inv\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -22,13 +24,20 @@ class EcoInquiryController extends Controller
     public function show(Inquiry $inquiry)
     {
         $inquiry->load(['client', 'product', 'messages']);
-        // Also load quotations that belong to this inquiry (optional: link via custom field)
+        
+        // Load quotations linked via custom_notes with pattern "inquiry_id:XXX"
         $quotations = ClientQuotation::where('client_id', $inquiry->client_id)
-            ->where('custom_notes', 'LIKE', "%inquiry_id:{$inquiry->id}%")
+            ->where('custom_notes', 'LIKE', '%inquiry_id:' . $inquiry->id . '%')
+            ->with('items') // eager load items for client side
             ->get();
-        return Inertia::render('ECO/InquiryShow', [
+
+        // Get all products for the dropdown
+        $allProducts = Product::all();
+
+        return Inertia::render('Dashboard/ECO/InquiryShow', [
             'inquiry' => $inquiry,
             'quotations' => $quotations,
+            'allProducts' => $allProducts,
         ]);
     }
 
@@ -77,13 +86,13 @@ class EcoInquiryController extends Controller
 
         $client = $inquiry->client;
         $subtotal = collect($validated['items'])->sum(fn($i) => $i['quantity'] * $i['unit_price']);
-        $grandTotal = $subtotal; // tax/shipping can be added later
+        $grandTotal = $subtotal;
 
         DB::beginTransaction();
         try {
             $quotation = ClientQuotation::create([
                 'client_id' => $client->id,
-                'quotation_number' => 'QT-'.date('Y').'-'.str_pad(ClientQuotation::count() + 1, 4, '0', STR_PAD_LEFT),
+                'quotation_number' => 'QT-' . date('Y') . '-' . str_pad(ClientQuotation::count() + 1, 4, '0', STR_PAD_LEFT),
                 'issue_date' => now(),
                 'valid_until' => now()->addDays(30),
                 'status' => 'sent',
@@ -93,11 +102,12 @@ class EcoInquiryController extends Controller
                 'subtotal' => $subtotal,
                 'grand_total' => $grandTotal,
                 'currency' => 'PHP',
-                'custom_notes' => "Inquiry #{$inquiry->id}\nDelivery: {$validated['delivery_date']}\nPayment Mode: {$validated['payment_mode']}\n".($validated['notes'] ?? ''),
+                // Store inquiry ID in a searchable format
+                'custom_notes' => "inquiry_id:{$inquiry->id}\nDelivery: {$validated['delivery_date']}\nPayment Mode: {$validated['payment_mode']}\n" . ($validated['notes'] ?? ''),
             ]);
 
             foreach ($validated['items'] as $item) {
-                $product = \App\Models\inv\Product::find($item['product_id']);
+                $product = Product::find($item['product_id']);
                 ClientQuotationItem::create([
                     'quotation_id' => $quotation->id,
                     'product_id' => $item['product_id'],
@@ -110,25 +120,24 @@ class EcoInquiryController extends Controller
                 ]);
             }
 
-            // Add system message
             ConversationMessage::create([
                 'inquiry_id' => $inquiry->id,
                 'sender_type' => 'eco',
-                'message' => "Quotation {$quotation->quotation_number} has been issued. Total: ₱".number_format($grandTotal, 2),
+                'message' => "Quotation {$quotation->quotation_number} has been issued. Total: ₱" . number_format($grandTotal, 2),
                 'is_system_event' => true,
             ]);
             $inquiry->update(['status' => 'quotation_sent', 'last_message_at' => now()]);
             DB::commit();
+
             return back()->with('success', 'Quotation sent to client.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to issue quotation: '.$e->getMessage()]);
+            return back()->withErrors(['error' => 'Failed to issue quotation: ' . $e->getMessage()]);
         }
     }
 
     public function creditCheck(Client $client)
     {
-        // Return data from CreditController (see below)
         $credit = \App\Models\CreditAccount::where('client_id', $client->id)->first();
         $outstanding = $credit ? $credit->outstanding_balance : 0;
         $isGood = $credit ? $credit->is_good_payer : true;

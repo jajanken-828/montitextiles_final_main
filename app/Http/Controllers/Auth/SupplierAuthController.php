@@ -7,6 +7,7 @@ use App\Models\Supplier;
 use App\Models\VendorRegistration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class SupplierAuthController extends Controller
@@ -26,25 +27,26 @@ class SupplierAuthController extends Controller
         ]);
 
         if (Auth::guard('supplier')->attempt($credentials, $request->boolean('remember'))) {
-
             $supplier = Auth::guard('supplier')->user();
 
-            // CHECK IF THEY ARE APPROVED BY THE SCM MANAGER YET
-            if (! $supplier->isApproved()) {
-                // If not approved, log them right back out
+            // Check if the vendor registration is approved
+            $registration = VendorRegistration::where('supplier_id', $supplier->id)
+                            ->where('status', 'approved')
+                            ->first();
+
+            if (!$registration) {
+                // Not approved or registration missing – log them out immediately
                 Auth::guard('supplier')->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
 
-                // Send them back to the login page with an error
                 return back()->withErrors([
                     'email' => 'Your vendor registration is still pending SCM approval or has been rejected.',
                 ])->onlyInput('email');
             }
 
-            // If approved, let them in normally
+            // Approved – let them in
             $request->session()->regenerate();
-
             return redirect()->route('supplier.dashboard');
         }
 
@@ -71,29 +73,54 @@ class SupplierAuthController extends Controller
             'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
-        // 1. Create the Supplier Account (Database record)
-        $supplier = Supplier::create([
-            'business_name' => $validated['business_name'],
-            'representative_name' => $validated['representative_name'],
-            'address' => $validated['address'],
-            'email' => $validated['email'],
-            'phone_number' => $validated['phone_number'],
-            'password' => bcrypt($validated['password']),
-        ]);
+        // Check if a vendor registration already exists for this email
+        $existingRegistration = VendorRegistration::where('email', $validated['email'])->first();
+        if ($existingRegistration) {
+            return back()->withErrors([
+                'email' => 'A registration with this email already exists. Please contact SCM for assistance.',
+            ])->onlyInput('email');
+        }
 
-        // 2. Create the Vendor Registration Ticket (Flags them as Pending)
-        VendorRegistration::create([
-            'supplier_id' => $supplier->id,
-            'business_name' => $supplier->business_name,
-            'representative_name' => $supplier->representative_name,
-            'email' => $supplier->email,
-            'phone_number' => $supplier->phone_number,
-            'address' => $supplier->address,
-            'status' => 'pending',
-        ]);
+        // Use a database transaction to ensure both records are created or none
+        DB::beginTransaction();
 
-        // 3. DO NOT LOG THEM IN. Redirect them to the login page.
-        return redirect()->route('supplier.login');
+        try {
+            // 1. Create the Supplier account
+            $supplier = Supplier::create([
+                'business_name' => $validated['business_name'],
+                'representative_name' => $validated['representative_name'],
+                'address' => $validated['address'],
+                'email' => $validated['email'],
+                'phone_number' => $validated['phone_number'],
+                'password' => bcrypt($validated['password']),
+            ]);
+
+            // 2. Create the Vendor Registration ticket (status = pending)
+            VendorRegistration::create([
+                'supplier_id' => $supplier->id,
+                'business_name' => $supplier->business_name,
+                'representative_name' => $supplier->representative_name,
+                'email' => $supplier->email,
+                'phone_number' => $supplier->phone_number,
+                'address' => $supplier->address,
+                'status' => 'pending',
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('supplier.login')->with('status', 'Registration successful! Please wait for SCM approval before logging in.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // If the supplier was created but VendorRegistration failed (e.g., duplicate email), delete the supplier
+            if (isset($supplier)) {
+                $supplier->delete();
+            }
+
+            return back()->withErrors([
+                'email' => 'Registration failed. Please try again or contact support.',
+            ])->withInput();
+        }
     }
 
     /** Log out the supplier */
