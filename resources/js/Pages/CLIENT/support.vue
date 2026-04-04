@@ -1,202 +1,170 @@
-<script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, usePage } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
-import {
-    HelpCircle,
-    MessageSquare,
-    Phone,
-    Mail,
-    FileText,
-    Search,
-    ChevronRight,
-    LifeBuoy,
-    Clock,
-    ShieldQuestion,
-    ArrowUpRight
-} from 'lucide-vue-next';
-
-const page = usePage();
-const client = computed(() => page.props.auth?.client);
-
-// FAQ Categories
-const faqs = ref([
-    { question: 'How do I request a credit line increase?', category: 'Billing' },
-    { question: 'What is the standard lead time for wholesale orders?', category: 'Shipping' },
-    { question: 'How can I track my fabric production status?', category: 'Orders' },
-    { question: 'Can I request a custom fabric GSM?', category: 'Technical' },
-]);
-
-const supportChannels = [
-    {
-        title: 'Submit Ticket',
-        desc: 'Open a formal inquiry for technical or billing issues.',
-        icon: MessageSquare,
-        color: 'text-blue-600',
-        bg: 'bg-blue-50 dark:bg-blue-900/20'
-    },
-    {
-        title: 'Knowledge Base',
-        desc: 'Browse documentation on fabric specifications and care.',
-        icon: FileText,
-        color: 'text-indigo-600',
-        bg: 'bg-indigo-50 dark:bg-indigo-900/20'
-    },
-    {
-        title: 'Account Manager',
-        desc: 'Direct line for VIP wholesale partners.',
-        icon: LifeBuoy,
-        color: 'text-purple-600',
-        bg: 'bg-purple-50 dark:bg-purple-900/20'
-    }
-];
-</script>
-
 <template>
-
-    <Head title="Support - Partner Portal" />
-
+    <Head title="Support & Feedback" />
     <AuthenticatedLayout>
-        <div class="max-w-7xl mx-auto space-y-10">
+        <div class="max-w-4xl mx-auto space-y-10 p-4 lg:p-10">
 
-            <div
-                class="relative overflow-hidden rounded-[3rem] bg-gray-900 p-10 text-white border border-gray-800 shadow-2xl">
-                <div class="absolute -right-20 -top-20 h-80 w-80 bg-blue-600/20 rounded-full blur-3xl"></div>
-                <div class="absolute -left-20 -bottom-20 h-64 w-64 bg-indigo-600/10 rounded-full blur-3xl"></div>
-
-                <div class="relative z-10 text-center max-w-2xl mx-auto space-y-4">
-                    <div
-                        class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-widest">
-                        <HelpCircle class="h-3.5 w-3.5 text-blue-400" />
-                        Partner Assistance Center
+            <!-- Header -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-[0.2em]">
+                        <HelpCircle class="h-3.5 w-3.5" />
+                        Client Care
                     </div>
-                    <h1 class="text-4xl md:text-5xl font-black tracking-tighter uppercase italic">How can we <span
-                            class="text-blue-500">help you?</span></h1>
-                    <p class="text-gray-400 font-medium text-sm">Dedicated support for our B2B partners. Search our
-                        resources or contact your account manager.</p>
-
-                    <div class="relative mt-8">
-                        <Search class="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <input type="text" placeholder="Search for fabric specs, shipping times, or billing..."
-                            class="w-full pl-16 pr-6 py-5 rounded-3xl bg-white text-gray-900 border-none focus:ring-4 focus:ring-blue-500/50 text-sm font-bold shadow-2xl shadow-blue-500/10 transition-all">
-                    </div>
+                    <h1 class="text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase">
+                        Support & <span class="text-indigo-600">Feedback</span>
+                    </h1>
+                    <p class="text-sm font-medium text-gray-500 italic">
+                        Submit complaints or share your feedback with our CRM team.
+                    </p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div v-for="channel in supportChannels" :key="channel.title"
-                    class="group p-8 rounded-[2.5rem] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm transition-all hover:shadow-xl hover:-translate-y-2">
-                    <div :class="[channel.bg, channel.color]"
-                        class="h-14 w-14 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110">
-                        <component :is="channel.icon" class="h-7 w-7" />
-                    </div>
-                    <h3 class="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">{{
-                        channel.title }}</h3>
-                    <p class="mt-2 text-sm text-gray-500 font-medium leading-relaxed">{{ channel.desc }}</p>
-                    <button
-                        class="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-blue-600 group-hover:gap-4 transition-all">
-                        Get Started
-                        <ChevronRight class="h-4 w-4" />
-                    </button>
+            <!-- Contact Info Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg">
+                    <Phone class="h-8 w-8 mb-3 opacity-80" />
+                    <h3 class="text-lg font-black">Hotline</h3>
+                    <p class="text-2xl font-bold mt-1">+63 (2) 8888-MONTI</p>
+                    <p class="text-xs opacity-80 mt-2">Mon-Fri, 8AM – 6PM</p>
+                </div>
+                <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-6 text-white shadow-lg">
+                    <Mail class="h-8 w-8 mb-3 opacity-80" />
+                    <h3 class="text-lg font-black">Email Support</h3>
+                    <p class="text-xl font-bold mt-1">support@montitextile.ph</p>
+                    <p class="text-xs opacity-80 mt-2">Response within 24 hours</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
-
-                <div class="space-y-6">
-                    <div class="flex items-center gap-3">
-                        <div
-                            class="h-10 w-10 rounded-xl bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
-                            <ShieldQuestion class="h-5 w-5" />
-                        </div>
-                        <h2 class="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Frequent
-                            Inquiries</h2>
-                    </div>
-
-                    <div class="space-y-3">
-                        <div v-for="faq in faqs" :key="faq.question"
-                            class="flex items-center justify-between p-5 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 group hover:border-blue-200 transition-all cursor-pointer">
-                            <div class="flex items-center gap-4">
-                                <span
-                                    class="text-[9px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg uppercase w-16 text-center">{{
-                                    faq.category }}</span>
-                                <p class="text-sm font-bold text-gray-700 dark:text-gray-300">{{ faq.question }}</p>
-                            </div>
-                            <ChevronRight class="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
-                        </div>
-                    </div>
-                </div>
-
-                <div class="space-y-6">
-                    <div class="flex items-center gap-3">
-                        <div
-                            class="h-10 w-10 rounded-xl bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
-                            <Clock class="h-5 w-5" />
-                        </div>
-                        <h2 class="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Business
-                            Support Hours</h2>
-                    </div>
-
-                    <div
-                        class="rounded-[2.5rem] bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white shadow-lg">
-                        <div class="space-y-6">
-                            <div class="flex items-start gap-4">
-                                <Phone class="h-6 w-6 opacity-60" />
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Direct Line
-                                    </p>
-                                    <p class="text-lg font-black">+63 (2) 8888-MONTI</p>
-                                </div>
-                            </div>
-                            <div class="flex items-start gap-4">
-                                <Mail class="h-6 w-6 opacity-60" />
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Enterprise
-                                        Support</p>
-                                    <p class="text-lg font-black">support@montitextile.ph</p>
-                                </div>
-                            </div>
-                            <div class="pt-6 border-t border-white/10 flex justify-between items-center">
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-widest opacity-80">Monday —
-                                        Friday</p>
-                                    <p class="text-sm font-bold">08:00 AM — 06:00 PM</p>
-                                </div>
-                                <div class="h-10 w-10 rounded-full bg-green-500 border-4 border-white/20 animate-pulse">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                class="flex items-center justify-between p-8 rounded-[2.5rem] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm">
-                <div class="flex items-center gap-5">
-                    <div
-                        class="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-gray-900 dark:text-white">
-                        <MessageSquare class="h-6 w-6" />
-                    </div>
+            <!-- Complaint/Feedback Form -->
+            <div class="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                <form @submit.prevent="submitComplaint" class="p-8 space-y-6">
                     <div>
-                        <h4 class="text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Looking
-                            for your open tickets?</h4>
-                        <p class="text-xs font-medium text-gray-500">View the progress of your ongoing technical support
-                            and billing inquiries.</p>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Type *</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" v-model="form.type" value="complaint" class="text-indigo-600">
+                                <span class="text-sm font-bold">Complaint</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" v-model="form.type" value="feedback" class="text-indigo-600">
+                                <span class="text-sm font-bold">Feedback / Suggestion</span>
+                            </label>
+                        </div>
                     </div>
-                </div>
-                <Link href="#"
-                    class="group flex items-center gap-2 px-6 py-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95">
-                    View History
-                    <ArrowUpRight class="h-4 w-4" />
-                </Link>
-            </div>
 
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">Subject *</label>
+                        <input v-model="form.subject" type="text" required
+                            class="w-full rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Brief summary of your issue or suggestion">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">Message *</label>
+                        <textarea v-model="form.message" rows="6" required
+                            class="w-full rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Please provide as much detail as possible..."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">Attachment (Optional)</label>
+                        <div class="flex items-center gap-3">
+                            <input type="file" @change="handleFileUpload" accept="image/*,application/pdf"
+                                class="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                            <span v-if="form.attachment" class="text-xs text-green-600">✓ File selected</span>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-1">Max 5MB. Accepted: JPG, PNG, PDF</p>
+                    </div>
+
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <p class="text-xs font-medium text-blue-800 dark:text-blue-200 flex items-start gap-2">
+                            <Info class="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            Your message will be sent directly to our Customer Relationship Management (CRM) team. 
+                            A representative will respond within 2 business days.
+                        </p>
+                    </div>
+
+                    <button type="submit" :disabled="form.processing"
+                        class="w-full py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                        <Loader2 v-if="form.processing" class="h-4 w-4 animate-spin" />
+                        <Send v-else class="h-4 w-4" />
+                        {{ form.processing ? 'Sending...' : 'Submit to CRM' }}
+                    </button>
+                </form>
+            </div>
         </div>
+
+        <!-- Toast Notification -->
+        <Transition name="toast">
+            <div v-if="toast.show" class="fixed bottom-8 right-8 z-50 px-6 py-3 rounded-xl shadow-lg text-white font-bold text-sm"
+                :class="toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'">
+                {{ toast.message }}
+            </div>
+        </Transition>
     </AuthenticatedLayout>
 </template>
 
+<script setup>
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { HelpCircle, Phone, Mail, Info, Loader2, Send } from 'lucide-vue-next';
+
+const form = useForm({
+    type: 'complaint',
+    subject: '',
+    message: '',
+    attachment: null
+});
+
+const toast = ref({ show: false, type: 'success', message: '' });
+
+const showToast = (type, message) => {
+    toast.value = { show: true, type, message };
+    setTimeout(() => { toast.value.show = false; }, 4000);
+};
+
+const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && file.size > 5 * 1024 * 1024) {
+        showToast('error', 'File size exceeds 5MB limit.');
+        event.target.value = '';
+        form.attachment = null;
+        return;
+    }
+    form.attachment = file;
+};
+
+const submitComplaint = () => {
+    if (!form.subject.trim() || !form.message.trim()) {
+        showToast('error', 'Please fill in all required fields.');
+        return;
+    }
+    
+    form.post(route('client.support.complaint'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showToast('success', 'Your message has been sent to our CRM team.');
+            form.reset('subject', 'message', 'attachment');
+            form.type = 'complaint';
+            // Clear file input
+            const fileInput = document.querySelector('input[type="file"]');
+            if (fileInput) fileInput.value = '';
+        },
+        onError: (errors) => {
+            const errorMsg = Object.values(errors)[0] || 'Failed to send. Please try again.';
+            showToast('error', errorMsg);
+        }
+    });
+};
+</script>
+
 <style scoped>
-.tracking-tighter {
-    letter-spacing: -0.05em;
+.toast-enter-active, .toast-leave-active {
+    transition: all 0.3s ease;
+}
+.toast-enter-from, .toast-leave-to {
+    opacity: 0;
+    transform: translateY(20px);
 }
 </style>

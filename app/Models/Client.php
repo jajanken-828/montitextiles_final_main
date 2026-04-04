@@ -74,4 +74,10 @@ public function feedback()
 {
     return $this->hasMany(CrmFeedback::class);
 }
+
+public function creditAccount()
+{
+    // Adjust 'CreditAccount::class' to your actual Credit model name
+    return $this->hasOne(CreditAccount::class); 
+}
 }

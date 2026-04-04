@@ -50,7 +50,27 @@ import {
     CalendarCheck,
     UserX,
     AlertCircle,
-    UserCog
+    UserCog,
+    MessageSquare,
+    Navigation,
+    MapPin,
+    Briefcase,
+    Plus,
+    ArrowLeft,
+    Paperclip,
+    Loader2,
+    Info,
+    Phone,
+    Mail,
+    Calendar,
+    Tag,
+    Weight,
+    Ruler,
+    Layers,
+    ArrowRight,
+    Zap,
+    Activity,
+    DollarSign
 } from 'lucide-vue-next'
 
 const page = usePage()
@@ -87,6 +107,7 @@ const isScmOpen = ref(getStored('scm'))
 const isInvOpen = ref(getStored('inv'))
 const isProOpen = ref(getStored('pro'))
 const isManOpen = ref(getStored('man'))
+const isOrdOpen = ref(getStored('ord'))  // NEW: Order Management dropdown
 
 const toggleWorkforceSub = () => { isWorkforceSubOpen.value = !isWorkforceSubOpen.value; setStored('workforce', isWorkforceSubOpen.value) }
 const toggleHrm = () => { isHrmOpen.value = !isHrmOpen.value; setStored('hrm', isHrmOpen.value) }
@@ -96,6 +117,7 @@ const toggleScm = () => { isScmOpen.value = !isScmOpen.value; setStored('scm', i
 const toggleInv = () => { isInvOpen.value = !isInvOpen.value; setStored('inv', isInvOpen.value) }
 const togglePro = () => { isProOpen.value = !isProOpen.value; setStored('pro', isProOpen.value) }
 const toggleMan = () => { isManOpen.value = !isManOpen.value; setStored('man', isManOpen.value) }
+const toggleOrd = () => { isOrdOpen.value = !isOrdOpen.value; setStored('ord', isOrdOpen.value) }
 
 // ─── SCROLL POSITION PERSISTENCE ──────────────────────────────────────────────
 const sidebarScrollRef = ref(null)
@@ -140,6 +162,12 @@ const hasWorkforceAccess = computed(() => {
     return perms && perms.length > 0
 })
 
+// NEW: Check if user has access to Order Management module
+const hasOrdAccess = computed(() => {
+    if (user.value?.role === 'CEO') return true
+    return user.value?.has_ord_access === true
+})
+
 const isEmployeePortal = computed(() => currentUrl.value.startsWith('/dashboard/employee-ui'))
 const isClient = computed(() => !!client.value)
 const isSupplier = computed(() => !!supplier.value || currentUrl.value.startsWith('/supplier'))
@@ -157,8 +185,10 @@ const navItems = computed(() => {
         return [
             { label: 'Dashboard', href: route('client.dashboard'), icon: LayoutDashboard },
             { label: 'Products', href: route('client.products'), icon: ShoppingBag },
+            { label: 'Conversations', href: route('client.conversations'), icon: MessageSquare },
             { label: 'Orders', href: route('client.orders'), icon: ShoppingCart },
             { label: 'Invoices', href: route('client.invoices'), icon: Receipt },
+            { label: 'Receiving', href: route('client.receiving'), icon: Truck },
             { label: 'Profile', href: route('client.profile.edit'), icon: User },
             { label: 'Support', href: route('client.support'), icon: HelpCircle },
         ]
@@ -227,7 +257,6 @@ const navItems = computed(() => {
             { label: 'Interviews', href: route('crm.interview.index'), icon: Eye, id: 'interview' },
             { label: 'Trainees', href: route('crm.trainee.index'), icon: Award, id: 'trainee' },
             { label: 'Approvals', href: route('crm.approval.index'), icon: ClipboardCheck, id: 'approval' },
-            // FIXED: now links to the index page (list of all clients) instead of a hardcoded show route
             { label: 'Customer Profiles', href: route('crm.customerprofile.index'), icon: Users, id: 'customerprofile' },
             { label: 'Investigation', href: route('crm.investigation.index'), icon: AlertCircle, id: 'investigation' },
             { label: 'Access Control', href: route('crm.access.index'), icon: ShieldCheck, id: 'access' },
@@ -251,15 +280,15 @@ const navItems = computed(() => {
         }
     }
 
-    // --- ECO Logic ---
+    // --- ECO Logic (RESTRUCTURED with new routes) ---
     if (userRole === 'ECO' || userRole === 'CEO') {
         const ecoChildren = [
-            { label: 'Dashboard', href: route('eco.manager.dashboard'), icon: LayoutDashboard },
-            { label: 'Store', href: route('eco.manager.store'), icon: ShoppingBag },
-            { label: 'Orders', href: route('eco.manager.orders'), icon: ShoppingCart },
-            { label: 'Quotations', href: route('eco.manager.quotations'), icon: FileText },
-            { label: 'Credit', href: route('eco.manager.credit'), icon: CreditCard },
-            { label: 'Book', href: route('eco.manager.book'), icon: Book },
+            { label: 'Dashboard', href: route('eco.dashboard'), icon: LayoutDashboard },
+            { label: 'Store', href: route('eco.store'), icon: ShoppingBag },
+            { label: 'Inquiries', href: route('eco.inquiries'), icon: MessageSquare },
+            { label: 'Credit', href: route('eco.credit'), icon: CreditCard },
+            { label: 'Push Center', href: route('eco.push'), icon: Send },
+            { label: 'Access Control', href: route('eco.access'), icon: ShieldCheck },
         ];
         if (userRole === 'CEO') {
             items.push({ label: 'E-Commerce', icon: ShoppingBag, isDropdown: true, isOpen: isEcoOpen.value, toggle: toggleEco, children: ecoChildren });
@@ -332,6 +361,27 @@ const navItems = computed(() => {
         } else {
             items.push(...manChildren);
         }
+    }
+
+    // --- NEW: Order Management (ORD) Logic ---
+    if (hasOrdAccess.value) {
+        const ordChildren = [
+            { label: 'Orders', href: route('ord.orders'), icon: ClipboardList },
+            { label: 'Productions', href: route('ord.productions'), icon: Factory },
+            { label: 'Delivery', href: route('ord.delivery'), icon: Truck },
+        ];
+        // Only CEO sees Access Control page
+        if (userRole === 'CEO') {
+            ordChildren.push({ label: 'Access Control', href: route('ord.access.index'), icon: ShieldCheck });
+        }
+        items.push({
+            label: 'Order Management',
+            icon: ClipboardCheck,
+            isDropdown: true,
+            isOpen: isOrdOpen.value,
+            toggle: toggleOrd,
+            children: ordChildren
+        });
     }
 
     return items

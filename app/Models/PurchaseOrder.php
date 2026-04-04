@@ -27,6 +27,7 @@ class PurchaseOrder extends Model
         'status',
         'tier_level',
         'notes',
+        'delivery_date',
     ];
 
     /**
@@ -49,4 +50,11 @@ class PurchaseOrder extends Model
     {
         return $this->hasOne(OrderQueue::class, 'purchase_order_id');
     }
+    /* app/Models/PurchaseOrder.php */
+
+public function orderQueue()
+{
+    // Adjust 'OrderQueue::class' to your actual model name for the queue
+    return $this->hasOne(OrderQueue::class); 
+}
 }

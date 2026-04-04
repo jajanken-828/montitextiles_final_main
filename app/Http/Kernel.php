@@ -29,5 +29,7 @@ class Kernel extends HttpKernel
         // Custom middleware
         'role' => \App\Http\Middleware\CheckRole::class,
         'position' => \App\Http\Middleware\CheckPosition::class,
+        'can.access.eco' => \App\Http\Middleware\CheckEcoAccess::class,
+        'can.access.ord' => \App\Http\Middleware\CanAccessOrd::class,  // NEW: Order Management access control
     ];
 }

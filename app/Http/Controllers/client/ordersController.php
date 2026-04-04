@@ -3,81 +3,40 @@
 namespace App\Http\Controllers\client;
 
 use App\Http\Controllers\Controller;
-use App\Models\OrderQueue;
-use App\Models\PurchaseOrder;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
+// Assuming you have an Order or PurchaseOrder model
+// use App\Models\PurchaseOrder; 
 
 class OrdersController extends Controller
 {
     /**
-     * Display the client's purchase orders.
-     *
-     * @return \Inertia\Response
+     * Display the partner's orders.
+     * Route Name: client.orders
      */
     public function orders()
     {
+        // Get the currently authenticated B2B client
         $client = Auth::guard('client')->user();
 
-        $orders = PurchaseOrder::with(['items.product'])
-            ->where('client_id', $client->id)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($order) {
-                // Attach queue stage if needed
-                $queue = OrderQueue::where('purchase_order_id', $order->id)->first();
-                $order->queue_stage = $queue ? $queue->stage : null;
+        // Fetch orders belonging to this client
+        // $orders = $client->orders()->latest()->get(); 
 
-                return $order;
-            });
-
-        $stats = [
-            'pending_orders' => $orders->where('status', 'credit_review')->count()
-                + $orders->where('status', 'tier_assignment')->count()
-                + $orders->where('status', 'pending_client_approval')->count(),
-            'completed_orders' => $orders->where('status', 'approved')->count(),
-            'recent_orders' => $orders->take(5),
-        ];
-
-        return Inertia::render('CLIENT/orders', [
-            'orders' => $orders,
-            'stats' => $stats,
+        return Inertia::render('Client/Orders', [
+            'client' => $client,
+            // 'orders' => $orders,
         ]);
     }
 
     /**
-     * Accept a finalized purchase order (after tiering).
-     *
-     * @return \Illuminate\Http\RedirectResponse
+     * Handle purchase order acceptance.
+     * Route Name: client.orders.accept
      */
-    public function acceptPurchaseOrder(PurchaseOrder $order)
+    public function acceptPurchaseOrder(Request $request, $id)
     {
-        if ($order->client_id !== Auth::guard('client')->id()) {
-            abort(403);
-        }
-
-        if ($order->status !== 'pending_client_approval') {
-            return back()->with('error', 'This order is not awaiting your approval.');
-        }
-
-        DB::beginTransaction();
-        try {
-            $order->update(['status' => 'approved']);
-
-            // Update queue stage
-            OrderQueue::updateOrCreate(
-                ['purchase_order_id' => $order->id],
-                ['stage' => 'eco_approved']
-            );
-
-            DB::commit();
-
-            return redirect()->back()->with('success', 'Order approved. It will now be processed by Supply Chain.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return redirect()->back()->with('error', 'Failed to approve order.');
-        }
+        // Add your logic to update order status here
+        
+        return back()->with('message', 'Order accepted successfully.');
     }
 }

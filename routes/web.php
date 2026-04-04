@@ -3,12 +3,16 @@
 use App\Http\Controllers\Auth\ClientAuthController;
 use App\Http\Controllers\Auth\SupplierAuthController;
 use App\Http\Controllers\ceo\CeoDashboardController;
-use App\Http\Controllers\client\DashboardController as ClientDashboardController;
+use App\Http\Controllers\client\ClientConversationController;
+use App\Http\Controllers\client\ClientDashboardController;
+use App\Http\Controllers\client\ClientInvoiceController;
+use App\Http\Controllers\client\ClientProductsController;
+use App\Http\Controllers\client\ClientProfileController;
+use App\Http\Controllers\client\ClientReceivingController;
+use App\Http\Controllers\client\ClientSupportController;
 use App\Http\Controllers\client\InvoicesController;
 use App\Http\Controllers\client\OrdersController;
 use App\Http\Controllers\client\ProductController as ClientProductController;
-use App\Http\Controllers\client\ProfileController as ClientProfileController;
-use App\Http\Controllers\client\QuotationController;
 use App\Http\Controllers\client\SupportController;
 use App\Http\Controllers\crm\AccessController as CrmAccessController;
 use App\Http\Controllers\crm\ApprovalController;
@@ -19,16 +23,12 @@ use App\Http\Controllers\crm\InvestigationController;
 use App\Http\Controllers\crm\LeadController;
 use App\Http\Controllers\crm\TraineeController as CrmTraineeController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\eco\EcoAccessController;
+use App\Http\Controllers\eco\EcoCreditController;
 use App\Http\Controllers\eco\EcoDashboardController;
-use App\Http\Controllers\eco\manager\BookController;
-use App\Http\Controllers\eco\manager\ClientVerificationController;
-use App\Http\Controllers\eco\manager\CreditController;
-use App\Http\Controllers\eco\manager\OrderManagementController;
-use App\Http\Controllers\eco\manager\QuotationController as EcoQuotationController;
-use App\Http\Controllers\eco\manager\StoreController;
-use App\Http\Controllers\eco\staff\CustomerController;
-use App\Http\Controllers\eco\staff\OrdermngController;
-use App\Http\Controllers\eco\staff\ProductsController;
+use App\Http\Controllers\eco\EcoInquiryController;
+use App\Http\Controllers\eco\EcoPushController;
+use App\Http\Controllers\eco\EcoStoreController;
 use App\Http\Controllers\fin\FinDashboardController;
 use App\Http\Controllers\hrm\AccessController;
 use App\Http\Controllers\hrm\AnalyticsController;
@@ -56,7 +56,11 @@ use App\Http\Controllers\man\Staff\DyeingPackagingController;
 use App\Http\Controllers\man\Staff\DyeingSqueezerController;
 use App\Http\Controllers\man\Staff\KnittingYarnController;
 use App\Http\Controllers\man\Staff\MaintenanceCheckerController;
-use App\Http\Controllers\ord\OrdDashboardController;
+
+use App\Http\Controllers\ord\OrdOrdersController;
+use App\Http\Controllers\ord\OrdProductionsController;
+use App\Http\Controllers\ord\OrdDeliveryController;
+use App\Http\Controllers\ord\OrdAccessController;
 use App\Http\Controllers\pro\manager\ProcurementController;
 use App\Http\Controllers\pro\ProDashboardController;
 use App\Http\Controllers\ProfileController;
@@ -79,7 +83,6 @@ use App\Http\Controllers\users\AppController;
 use App\Http\Controllers\users\ClockController;
 use App\Http\Controllers\users\leaveController as UserLeaveController;
 use App\Http\Controllers\war\WarDashboardController;
-// Workforce Management Controllers
 use App\Http\Controllers\workforce\AbsentController;
 use App\Http\Controllers\workforce\AccessController as WorkforceAccessController;
 use App\Http\Controllers\workforce\LeaveController as WorkforceLeaveController;
@@ -110,7 +113,6 @@ Route::get('/apply', function () {
     return inertia('Auth/apply');
 })->name('apply');
 
-// FIXED: Corrected Alias to HrmApplicantController
 Route::post('/apply/store', [HrmApplicantController::class, 'store'])->name('applicants.public.store');
 
 /*
@@ -157,40 +159,33 @@ Route::prefix('dashboard/trainee')->middleware(['auth', 'verified', 'position:tr
 
 /*
 |--------------------------------------------------------------------------
-| Human Resources Management (HRM) Routes – Restructured
+| Human Resources Management (HRM) Routes
 |--------------------------------------------------------------------------
 */
 Route::prefix('dashboard/hrm')->name('hrm.')->middleware(['auth', 'verified'])->group(function () {
     Route::get('/', [HrmDashboardController::class, 'index'])->name('dashboard');
-
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/{id}', [EmployeeController::class, 'show'])->name('employees.show');
     Route::patch('/employees/{id}', [EmployeeController::class, 'update'])->name('employees.update');
     Route::delete('/employees/{id}', [EmployeeController::class, 'toggleStatus'])->name('employees.toggle-status');
-
     Route::get('/applications', [HrmApplicantController::class, 'index'])->name('applications.index');
     Route::post('/applications', [HrmApplicantController::class, 'store'])->name('applications.store');
     Route::post('/applications/{id}/accept', [HrmApplicantController::class, 'accept'])->name('applications.accept');
     Route::post('/applications/{id}/reject', [HrmApplicantController::class, 'reject'])->name('applications.reject');
     Route::get('/rejected', [HrmApplicantController::class, 'rejected'])->name('applications.rejected');
-
     Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
     Route::post('/interview/{id}/schedule', [InterviewController::class, 'schedule'])->name('interview.schedule');
     Route::post('/interview/{id}/pass', [InterviewController::class, 'pass'])->name('interview.pass');
     Route::post('/interview/{id}/fail', [InterviewController::class, 'fail'])->name('interview.fail');
     Route::post('/interview/{id}/pass-to-other', [InterviewController::class, 'passToOtherModule'])->name('interview.pass-to-other');
-
     Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
     Route::post('/trainee/{id}/grade', [TraineeController::class, 'grade'])->name('trainee.grade');
     Route::post('/trainee/{id}/pass', [TraineeController::class, 'pass'])->name('trainee.pass');
     Route::post('/trainee/{id}/fail', [TraineeController::class, 'fail'])->name('trainee.fail');
-
     Route::get('/onboarding', [OnboardingController::class, 'index'])->name('onboarding.index');
     Route::post('/onboarding/{id}/convert', [OnboardingController::class, 'convert'])->name('onboarding.convert');
-
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
     Route::post('/access/update', [AccessController::class, 'update'])->name('access.update');
-
     Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll');
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
 });
@@ -209,18 +204,14 @@ Route::prefix('dashboard/workforce')->name('workforce.')->middleware(['auth', 'v
     Route::delete('/scheduler/holiday/{id}', [SchedulerController::class, 'deleteHoliday'])->name('scheduler.holiday.destroy');
     Route::post('/scheduler/shift/bulk', [SchedulerController::class, 'storeBulkShift'])->name('scheduler.shift.bulk');
     Route::patch('/scheduler/holiday/{id}', [SchedulerController::class, 'updateHoliday'])->name('scheduler.holiday.update');
-    // CEO Planner routes
     Route::post('/scheduler/planner', [SchedulerController::class, 'storePlannerEvent'])->name('scheduler.planner.store');
     Route::patch('/scheduler/planner/{id}', [SchedulerController::class, 'updatePlannerEvent'])->name('scheduler.planner.update');
     Route::delete('/scheduler/planner/{id}', [SchedulerController::class, 'deletePlannerEvent'])->name('scheduler.planner.destroy');
-
     Route::get('/leave', [WorkforceLeaveController::class, 'index'])->name('leave');
     Route::post('/leave/{id}/approve', [WorkforceLeaveController::class, 'approve'])->name('leave.approve');
     Route::post('/leave/{id}/reject', [WorkforceLeaveController::class, 'reject'])->name('leave.reject');
-
     Route::get('/absent', [AbsentController::class, 'index'])->name('absent');
     Route::post('/absent/{id}/suspend', [AbsentController::class, 'suspend'])->name('absent.suspend');
-
     Route::get('/access', [WorkforceAccessController::class, 'index'])->name('access');
     Route::post('/access/update', [WorkforceAccessController::class, 'update'])->name('access.update');
 });
@@ -231,7 +222,6 @@ Route::prefix('dashboard/workforce')->name('workforce.')->middleware(['auth', 'v
 |--------------------------------------------------------------------------
 */
 Route::prefix('dashboard/scm')->name('scm.')->middleware(['auth', 'verified'])->group(function () {
-    // Shared RBAC Routes for CEO Oversight
     Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
     Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
@@ -464,21 +454,26 @@ Route::prefix('dashboard/inv')->name('inv.')->middleware(['auth', 'verified'])->
 
 /*
 |--------------------------------------------------------------------------
-| Order Processing (ORD) Routes
+| Order Processing (ORD) Routes - RESTRUCTURED
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/ord')->name('ord.')->middleware(['auth', 'verified'])->group(function () {
+Route::prefix('dashboard/ord')->name('ord.')->middleware(['auth', 'verified', 'can.access.ord'])->group(function () {
+    // Legacy HRM-style routes (keep for backward compatibility)
     Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
     Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
+    Route::post('/access/update', [AccessController::class, 'update'])->name('access.update');
 
-    Route::get('/manager', [OrdDashboardController::class, 'managerDashboard'])
-        ->middleware(['role:ORD', 'position:manager'])
-        ->name('manager.dashboard');
 
-    Route::get('/staff', [OrdDashboardController::class, 'staffDashboard'])
-        ->middleware(['role:ORD', 'position:staff'])
-        ->name('employee.dashboard');
+    // NEW Order Management Core Pages
+    Route::get('/orders', [OrdOrdersController::class, 'index'])->name('orders');
+    Route::get('/productions', [OrdProductionsController::class, 'index'])->name('productions');
+    Route::get('/delivery', [OrdDeliveryController::class, 'index'])->name('delivery');
+    Route::get('/delivery/{id}/track', [OrdDeliveryController::class, 'track'])->name('delivery.track');
+
+    // Access Control (CEO only)
+    Route::get('/access-control', [OrdAccessController::class, 'index'])->name('access.index');
+    Route::post('/access-control/update', [OrdAccessController::class, 'update'])->name('access.update');
 });
 
 /*
@@ -502,14 +497,11 @@ Route::prefix('dashboard/war')->name('war.')->middleware(['auth', 'verified'])->
 
 /*
 |--------------------------------------------------------------------------
-| Customer Relationship Management (CRM) Routes – Restructured
+| Customer Relationship Management (CRM) Routes
 |--------------------------------------------------------------------------
 */
 Route::prefix('dashboard/crm')->name('crm.')->middleware(['auth', 'verified'])->group(function () {
-    // Dashboard (unified, no manager/staff split)
     Route::get('/', [CrmDashboardController::class, 'index'])->name('dashboard');
-
-    // Lead Pipeline
     Route::get('/lead', [LeadController::class, 'index'])->name('lead');
     Route::post('/lead/store', [LeadController::class, 'store'])->name('lead.store');
     Route::patch('/lead/{id}/status', [LeadController::class, 'updateStatus'])->name('lead.status');
@@ -519,86 +511,57 @@ Route::prefix('dashboard/crm')->name('crm.')->middleware(['auth', 'verified'])->
     Route::post('/lead/{id}/file', [LeadController::class, 'uploadApprovalFile'])->name('lead.upload-file');
     Route::post('/lead/{id}/accept', [LeadController::class, 'acceptLead'])->name('lead.accept');
     Route::post('/lead/{id}/reject', [LeadController::class, 'rejectLead'])->name('lead.reject');
-
-    // Interview (applicants assigned to CRM)
     Route::get('/interview', [CrmInterviewController::class, 'index'])->name('interview.index');
     Route::post('/interview/{id}/schedule', [CrmInterviewController::class, 'schedule'])->name('interview.schedule');
     Route::post('/interview/{id}/pass', [CrmInterviewController::class, 'pass'])->name('interview.pass');
     Route::post('/interview/{id}/fail', [CrmInterviewController::class, 'fail'])->name('interview.fail');
     Route::post('/interview/{id}/pass-to-other', [CrmInterviewController::class, 'passToOtherModule'])->name('interview.pass-to-other');
-
-    // Trainee (CRM trainees)
     Route::get('/trainee', [CrmTraineeController::class, 'index'])->name('trainee.index');
     Route::post('/trainee/{id}/grade', [CrmTraineeController::class, 'grade'])->name('trainee.grade');
     Route::post('/trainee/{id}/pass', [CrmTraineeController::class, 'pass'])->name('trainee.pass');
     Route::post('/trainee/{id}/fail', [CrmTraineeController::class, 'fail'])->name('trainee.fail');
-
-    // Approval (pending client registrations)
     Route::get('/approval', [ApprovalController::class, 'index'])->name('approval.index');
     Route::post('/approval/{id}/note', [ApprovalController::class, 'addNote'])->name('approval.note');
     Route::post('/approval/{id}/meeting', [ApprovalController::class, 'scheduleMeeting'])->name('approval.meeting');
     Route::patch('/approval/meeting/{meetingId}/status', [ApprovalController::class, 'updateMeetingStatus'])->name('approval.meeting.update');
     Route::post('/approval/{id}/accept', [ApprovalController::class, 'accept'])->name('approval.accept');
     Route::post('/approval/{id}/reject', [ApprovalController::class, 'reject'])->name('approval.reject');
-
-    // Customer Profiles — index lists all clients, show displays one
     Route::get('/customerprofile', [CustomerProfileController::class, 'index'])->name('customerprofile.index');
     Route::get('/customerprofile/{id}', [CustomerProfileController::class, 'show'])->name('customerprofile.show');
-
-    // Investigation (feedback/complaints)
     Route::get('/investigation', [InvestigationController::class, 'index'])->name('investigation.index');
     Route::post('/investigation/assign', [InvestigationController::class, 'assignStaff'])->name('investigation.assign');
     Route::post('/investigation/feedback', [InvestigationController::class, 'storeFeedback'])->name('investigation.feedback.store');
     Route::patch('/investigation/feedback/{id}/status', [InvestigationController::class, 'updateFeedbackStatus'])->name('investigation.feedback.status');
-
-    // Access Control (CRM permissions)
     Route::get('/access', [CrmAccessController::class, 'index'])->name('access.index');
     Route::post('/access/update', [CrmAccessController::class, 'update'])->name('access.update');
 });
 
 /*
 |--------------------------------------------------------------------------
-| E-Commerce & Account Management (ECO) Routes
+| E‑Commerce (ECO) Module – Restructured
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/eco')->name('eco.')->middleware(['auth', 'verified'])->group(function () {
-    Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
-    Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
-    Route::get('/access', [AccessController::class, 'index'])->name('access.index');
-
-    Route::middleware(['role:ECO', 'position:manager'])->prefix('manager')->name('manager.')->group(function () {
-        Route::get('/', [EcoDashboardController::class, 'index'])->name('dashboard');
-        Route::get('/store', [StoreController::class, 'index'])->name('store');
-        Route::get('/orders', [OrderManagementController::class, 'index'])->name('orders');
-        Route::post('/orders/{order}/approve', [OrderManagementController::class, 'approveOrder'])->name('order.approve');
-        Route::post('/orders/{order}/reject', [OrderManagementController::class, 'rejectOrder'])->name('order.reject');
-        Route::post('/orders/{order}/send-to-scm', [OrderManagementController::class, 'sendToSCM'])->name('order.send-to-scm');
-        Route::get('/book', [BookController::class, 'book'])->name('book');
-        Route::post('/book/store', [BookController::class, 'store'])->name('book.store');
-        Route::patch('/book/{tier}/update', [BookController::class, 'update'])->name('book.update');
-        Route::post('/book/apply-tier/{po}', [BookController::class, 'applyTier'])->name('book.apply-tier');
-        Route::get('/credit', [CreditController::class, 'credit'])->name('credit');
-        Route::post('/credit', [CreditController::class, 'store'])->name('credit.store');
-        Route::post('/credit/verify/{po}', [CreditController::class, 'verifyOrder'])->name('credit.verify');
-        Route::patch('/credit/{account}/toggle', [CreditController::class, 'toggleStatus'])->name('credit.toggle-status');
-        Route::delete('/credit/{account}', [CreditController::class, 'destroy'])->name('credit.destroy');
-        Route::get('/credit/client/{client}/history', [CreditController::class, 'clientHistory'])->name('credit.client-history');
-        Route::get('/quotations', [EcoQuotationController::class, 'index'])->name('quotations');
-        Route::get('/quotations/{id}', [EcoQuotationController::class, 'show'])->name('quotations.show');
-        Route::post('/quotations/{id}/respond', [EcoQuotationController::class, 'respond'])->name('quotations.respond');
-        Route::get('/verification', [ClientVerificationController::class, 'index'])->name('verification.index');
-        Route::patch('/clients/{client}/status', [ClientVerificationController::class, 'updateStatus'])->name('clients.status.update');
-    });
-
-    Route::middleware(['role:ECO', 'position:staff'])->group(function () {
-        Route::get('/staff', [DashboardController::class, 'index'])->name('employee.dashboard');
-        Route::get('/products', [ProductsController::class, 'products'])->name('employee.products');
-        Route::post('/products', [ProductsController::class, 'store'])->name('employee.products.store');
-        Route::post('/products/{product}/update', [ProductsController::class, 'update'])->name('employee.products.update');
-        Route::patch('/products/{product}/toggle', [ProductsController::class, 'toggleStatus'])->name('employee.products.toggle');
-        Route::get('/ordermng', [OrdermngController::class, 'ordermng'])->name('employee.ordermng');
-        Route::get('/customer', [CustomerController::class, 'customer'])->name('employee.customer');
-    });
+Route::prefix('dashboard/eco')->name('eco.')->middleware(['auth', 'verified', 'can.access.eco'])->group(function () {
+    // Dashboard
+    Route::get('/', [EcoDashboardController::class, 'index'])->name('dashboard');
+    // Store (product catalog)
+    Route::get('/store', [EcoStoreController::class, 'index'])->name('store');
+    // Inquiries & Conversations
+    Route::get('/inquiries', [EcoInquiryController::class, 'index'])->name('inquiries');
+    Route::get('/inquiries/{inquiry}', [EcoInquiryController::class, 'show'])->name('inquiry.show');
+    Route::post('/inquiries/{inquiry}/message', [EcoInquiryController::class, 'sendMessage'])->name('inquiry.message');
+    Route::post('/inquiries/{inquiry}/meeting', [EcoInquiryController::class, 'setMeeting'])->name('inquiry.meeting');
+    Route::post('/inquiries/{inquiry}/quotation', [EcoInquiryController::class, 'issueQuotation'])->name('inquiry.quotation');
+    Route::get('/clients/{client}/credit-check', [EcoInquiryController::class, 'creditCheck'])->name('credit.check');
+    // Credit ledger
+    Route::get('/credit', [EcoCreditController::class, 'index'])->name('credit');
+    // Push to SCM / Order Management
+    Route::get('/push', [EcoPushController::class, 'index'])->name('push');
+    Route::post('/push/scm/{order}', [EcoPushController::class, 'pushToSCM'])->name('push.scm');
+    Route::post('/push/order-mgmt/{order}', [EcoPushController::class, 'pushToOrderManagement'])->name('push.ordermgmt');
+    // Access control (only CEO)
+    Route::get('/access', [EcoAccessController::class, 'index'])->name('access');
+    Route::post('/access/update', [EcoAccessController::class, 'update'])->name('access.update');
 });
 
 /*
@@ -692,23 +655,39 @@ Route::post('client/logout', [ClientAuthController::class, 'logout'])
 
 /*
 |--------------------------------------------------------------------------
-| Protected Client B2B Portal Routes
+| Protected Client B2B Portal Routes (Restructured)
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:client')->prefix('partner')->name('client.')->group(function () {
+    // Dashboard
     Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
-    Route::get('/products', [ClientProductController::class, 'index'])->name('products');
-    Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');
-    Route::post('/quotations/{quotation}/accept', [QuotationController::class, 'accept'])->name('quotations.accept');
-    Route::post('/quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
-    Route::get('/profile', [ClientProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ClientProfileController::class, 'update'])->name('profile.update');
+    // Products & Inquiries
+    Route::get('/products', [ClientProductsController::class, 'index'])->name('products');
+    Route::post('/products/{product}/inquire', [ClientProductsController::class, 'inquire'])->name('products.inquire');
+    // Conversations
+    Route::get('/conversations', [ClientConversationController::class, 'index'])->name('conversations');
+    Route::get('/conversations/{inquiry}', [ClientConversationController::class, 'show'])->name('conversation.show');
+    Route::post('/conversations/{inquiry}/message', [ClientConversationController::class, 'sendMessage'])->name('conversation.message');
+    Route::post('/quotations/{quotation}/accept', [ClientConversationController::class, 'acceptQuotation'])->name('quotation.accept');
+    Route::post('/quotations/{quotation}/reject', [ClientConversationController::class, 'rejectQuotation'])->name('quotation.reject');
+    // Orders & Invoices (legacy support)
     Route::get('/orders', [OrdersController::class, 'orders'])->name('orders');
     Route::post('/orders/{order}/accept', [OrdersController::class, 'acceptPurchaseOrder'])->name('orders.accept');
+    Route::get('/invoices', [ClientInvoiceController::class, 'index'])->name('invoices');
+    // Receiving (delivery confirmation)
+    Route::get('/receiving', [ClientReceivingController::class, 'index'])->name('receiving');
+    Route::post('/receiving/{order}/mark', [ClientReceivingController::class, 'markReceived'])->name('receiving.mark');
+    // Profile
+    Route::get('/profile', [ClientProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ClientProfileController::class, 'update'])->name('profile.update');
+    // Support
+    Route::get('/support', [ClientSupportController::class, 'index'])->name('support');
+    Route::post('/support/complaint', [ClientSupportController::class, 'storeComplaint'])->name('support.complaint');
+
+    // Legacy routes (preserved for backward compatibility)
+    // Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');
     Route::post('/purchase-order', [ClientDashboardController::class, 'placeOrder'])->name('purchase-order.store');
     Route::post('/quotation/{po}/accept', [ClientDashboardController::class, 'acceptQuotation'])->name('quotation.accept');
-    Route::get('/invoices', [InvoicesController::class, 'invoices'])->name('invoices');
-    Route::get('/support', [SupportController::class, 'support'])->name('support');
 });
 
 /*

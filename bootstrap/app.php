@@ -21,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'position' => \App\Http\Middleware\CheckPosition::class,
+            'can.access.eco' => \App\Http\Middleware\CheckEcoAccess::class,
+            'can.access.ord' => \App\Http\Middleware\CanAccessOrd::class,  // NEW: Order Management access
         ]);
 
         /**

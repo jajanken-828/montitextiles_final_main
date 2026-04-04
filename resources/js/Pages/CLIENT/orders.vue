@@ -1,208 +1,266 @@
-<script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import {
-    ShoppingBag,
-    FileText,
-    TrendingUp,
-    Clock,
-    CheckCircle2,
-    CreditCard,
-    ArrowUpRight,
-    Plus
-} from 'lucide-vue-next';
-
-const props = defineProps({
-    stats: {
-        type: Object,
-        default: () => ({
-            pending_orders: 0,
-            completed_orders: 0,
-            recent_orders: []
-        })
-    }
-});
-
-const page = usePage();
-const client = computed(() => page.props.auth?.client);
-</script>
-
 <template>
-
-    <Head title="Orders - Partner Portal" />
-
+    <Head title="My Orders" />
     <AuthenticatedLayout>
-        <div class="max-w-7xl mx-auto space-y-8">
+        <div class="max-w-[1600px] mx-auto space-y-10 p-4 lg:p-10">
 
-            <div
-                class="relative overflow-hidden rounded-[2rem] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-8 shadow-sm">
-                <div class="absolute -right-20 -top-20 h-64 w-64 bg-blue-500/5 rounded-full blur-3xl"></div>
-
-                <div class="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div>
-                        <div
-                            class="flex items-center gap-2 text-blue-600 font-black text-[10px] uppercase tracking-widest mb-2">
-                            <span class="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                            B2B Partner Portal
-                        </div>
-                        <h1 class="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase">
-                            Welcome, <span class="text-blue-600">{{ client?.company_name || 'Partner' }}</span>
-                        </h1>
-                        <p class="text-sm font-medium text-gray-500 mt-1">
-                            Managing orders for {{ client?.contact_person ?? 'Main Representative' }}
-                        </p>
+            <!-- Header -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-[0.2em]">
+                        <ShoppingCart class="h-3.5 w-3.5" />
+                        Order Management
                     </div>
-
-                    <div v-if="client"
-                        class="flex items-center gap-3 bg-slate-50 dark:bg-gray-800/50 p-2 pr-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-                        <div
-                            class="h-10 w-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-600">
-                            <CheckCircle2 class="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-tighter leading-none">
-                                Account Status</p>
-                            <p class="text-xs font-bold text-gray-900 dark:text-white uppercase">{{ client.status }}</p>
-                        </div>
-                    </div>
+                    <h1 class="text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase">
+                        My <span class="text-indigo-600">Orders</span>
+                    </h1>
+                    <p class="text-sm font-medium text-gray-500 italic">
+                        Track your purchase orders and approve finalized quotations.
+                    </p>
                 </div>
+                <button @click="refreshData" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <RefreshCw class="h-5 w-5 text-gray-500" />
+                </button>
             </div>
 
+            <!-- Stats Cards -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div
-                    class="group relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-white shadow-lg shadow-blue-500/20">
-                    <div class="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
-                        <CreditCard class="h-32 w-32" />
-                    </div>
-                    <div class="relative z-10">
-                        <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Available Credit Limit
-                        </p>
-                        <h3 class="mt-2 text-3xl font-black tracking-tight">
-                            ₱{{ client?.credit_limit ? parseFloat(client.credit_limit).toLocaleString() : '0' }}
-                        </h3>
-                        <div class="mt-4 flex items-center gap-2">
-                            <span class="text-[10px] font-bold bg-white/20 px-2 py-1 rounded-lg">
-                                Terms: {{ client?.payment_terms_days ?? 30 }} Days Net
-                            </span>
-                        </div>
-                    </div>
+                <div class="bg-white dark:bg-gray-900 p-7 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Orders</p>
+                    <p class="text-3xl font-black text-gray-900 dark:text-white mt-1">{{ stats.totalOrders }}</p>
                 </div>
-
-                <div
-                    class="rounded-[2rem] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                        <div
-                            class="h-12 w-12 rounded-2xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600">
-                            <Clock class="h-6 w-6" />
-                        </div>
-                        <span
-                            class="text-[10px] font-black text-orange-600 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg uppercase">In
-                            Progress</span>
-                    </div>
-                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pending Orders</p>
-                    <h3 class="text-3xl font-black text-gray-900 dark:text-white mt-1">{{ stats.pending_orders }}</h3>
-                    <p class="text-xs text-gray-500 mt-1 font-medium italic">Awaiting Manufacturing</p>
+                <div class="bg-white dark:bg-gray-900 p-7 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pending Approval</p>
+                    <p class="text-3xl font-black text-amber-600 mt-1">{{ stats.pendingApproval }}</p>
                 </div>
-
-                <div
-                    class="rounded-[2rem] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                        <div
-                            class="h-12 w-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
-                            <TrendingUp class="h-6 w-6" />
-                        </div>
-                        <span
-                            class="text-[10px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg uppercase">{{
-                                client?.business_type || 'B2B' }}</span>
-                    </div>
-                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tax Information</p>
-                    <h3 class="text-xl font-black text-gray-900 dark:text-white mt-1 truncate">TIN: {{
-                        client?.tin_number || 'N/A' }}</h3>
-                    <p class="text-xs text-gray-500 mt-1 font-medium">Verified Business Account</p>
+                <div class="bg-white dark:bg-gray-900 p-7 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Completed</p>
+                    <p class="text-3xl font-black text-emerald-600 mt-1">{{ stats.completed }}</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Link href="#"
-                    class="group flex items-center justify-center gap-3 rounded-2xl bg-gray-900 dark:bg-white px-8 py-5 text-white dark:text-gray-900 shadow-xl transition-all hover:scale-[1.02] active:scale-95">
-                    <Plus class="h-5 w-5" />
-                    <span class="font-black uppercase text-sm tracking-widest">New Wholesale Order</span>
-                </Link>
-
-                <Link href="#"
-                    class="group flex items-center justify-center gap-3 rounded-2xl bg-white dark:bg-gray-900 border-2 border-gray-900 dark:border-white px-8 py-5 text-gray-900 dark:text-white transition-all hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <FileText class="h-5 w-5" />
-                    <span class="font-black uppercase text-sm tracking-widest">View Invoices</span>
-                    <ArrowUpRight class="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all" />
-                </Link>
-            </div>
-
-            <div
-                class="overflow-hidden rounded-[2rem] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm">
-                <div class="flex items-center justify-between px-8 py-6 border-b border-gray-50 dark:border-gray-800">
-                    <div class="flex items-center gap-3">
-                        <div
-                            class="h-8 w-8 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
-                            <ShoppingBag class="h-4 w-4" />
-                        </div>
-                        <h3 class="font-black text-gray-900 dark:text-white uppercase text-sm tracking-tighter">Recent
-                            Order History</h3>
+            <!-- Orders Table -->
+            <div class="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                <div class="p-8 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center">
+                    <div class="relative flex-1 lg:w-96 group">
+                        <Search class="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input v-model="searchTerm" type="text" placeholder="Search by PO number..."
+                            class="w-full pl-11 pr-4 py-3.5 rounded-2xl border-gray-100 dark:border-gray-800 dark:bg-gray-950 text-[10px] font-black uppercase tracking-widest">
                     </div>
-                    <Link href="#" class="text-[10px] font-black text-blue-600 uppercase hover:underline">View All
-                        Orders</Link>
+                    <div class="flex gap-2 ml-4">
+                        <select v-model="statusFilter"
+                            class="px-4 py-3 rounded-2xl border-gray-100 dark:border-gray-800 dark:bg-gray-950 text-[10px] font-black uppercase">
+                            <option value="all">All Status</option>
+                            <option value="pending_client_approval">Pending Approval</option>
+                            <option value="approved">Approved</option>
+                            <option value="credit_review">Credit Review</option>
+                            <option value="tier_assignment">Tier Assignment</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
-                        <thead
-                            class="bg-slate-50/50 dark:bg-gray-800/30 text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                        <thead class="bg-gray-50/50 dark:bg-gray-800/30 text-[10px] font-black uppercase text-gray-400 tracking-[0.15em]">
                             <tr>
-                                <th class="px-8 py-4">Order Reference</th>
-                                <th class="px-8 py-4">Placement Date</th>
-                                <th class="px-8 py-4 text-right">Total Amount</th>
-                                <th class="px-8 py-4 text-center">Current Status</th>
+                                <th class="px-8 py-5">PO Number</th>
+                                <th class="px-8 py-5">Date</th>
+                                <th class="px-8 py-5 text-right">Total Amount</th>
+                                <th class="px-8 py-5 text-center">Status</th>
+                                <th class="px-8 py-5 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
-                            <tr v-if="stats.recent_orders.length === 0">
-                                <td colspan="4" class="px-8 py-16 text-center">
-                                    <div class="flex flex-col items-center justify-center opacity-40">
-                                        <ShoppingBag class="h-12 w-12 mb-4" />
-                                        <p class="text-sm font-bold text-gray-500 italic uppercase">No orders found in
-                                            history</p>
+                            <tr v-for="order in filteredOrders" :key="order.id" class="group hover:bg-gray-50/50 transition-all">
+                                <td class="px-8 py-6">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                            <FileText class="h-5 w-5" />
+                                        </div>
+                                        <span class="font-mono text-sm font-black text-gray-900 dark:text-white">{{ order.po_number }}</span>
                                     </div>
                                 </td>
-                            </tr>
-                            <tr v-for="order in stats.recent_orders" :key="order.id"
-                                class="group hover:bg-slate-50/50 dark:hover:bg-gray-800/50 transition-colors">
-                                <td class="px-8 py-5">
-                                    <span
-                                        class="font-black text-gray-900 dark:text-white tracking-tighter uppercase text-sm">#ORD-{{
-                                        order.id }}</span>
-                                </td>
-                                <td class="px-8 py-5 text-sm font-bold text-gray-500 tracking-tight">{{ order.date }}
-                                </td>
-                                <td class="px-8 py-5 text-right font-black text-gray-900 dark:text-white text-sm">₱{{
-                                    order.total }}</td>
-                                <td class="px-8 py-5 text-center">
-                                    <span
-                                        class="inline-flex items-center rounded-lg bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 text-[10px] font-black text-orange-600 uppercase">
-                                        Processing
+                                <td class="px-8 py-6 text-sm text-gray-600">{{ formatDate(order.created_at) }}</td>
+                                <td class="px-8 py-6 text-right font-black text-gray-900">₱{{ formatCurrency(order.total_amount) }}</td>
+                                <td class="px-8 py-6 text-center">
+                                    <span :class="getStatusBadge(order.status)" class="px-3 py-1 rounded-full text-[9px] font-black uppercase">
+                                        {{ formatStatus(order.status) }}
                                     </span>
+                                </td>
+                                <td class="px-8 py-6 text-right">
+                                    <button v-if="order.status === 'pending_client_approval'" 
+                                        @click="openAcceptModal(order)"
+                                        class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition">
+                                        Accept Order
+                                    </button>
+                                    <button v-else disabled
+                                        class="px-5 py-2.5 bg-gray-100 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed">
+                                        No Action
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr v-if="filteredOrders.length === 0">
+                                <td colspan="5" class="px-8 py-20 text-center text-gray-400 uppercase font-black italic">
+                                    No orders found.
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
 
+                <!-- Pagination -->
+                <div v-if="orders.meta?.last_page > 1" class="px-8 py-5 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">
+                        Showing {{ orders.meta.from }}–{{ orders.meta.to }} of {{ orders.meta.total }} orders
+                    </p>
+                    <div class="flex gap-2">
+                        <component v-for="link in orders.links" :key="link.label" :is="link.url ? 'a' : 'span'"
+                            :href="link.url ?? undefined" v-html="link.label" :class="[
+                                'px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
+                                link.active ? 'bg-indigo-600 text-white shadow-sm' : link.url ? 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-200 cursor-default'
+                            ]" />
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <!-- Accept Order Modal -->
+        <Teleport to="body">
+            <div v-if="showAcceptModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" @click.self="showAcceptModal = false">
+                <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+                    <div class="px-6 py-4 bg-indigo-600 text-white flex justify-between items-center">
+                        <h3 class="font-black text-lg">Accept Order</h3>
+                        <button @click="showAcceptModal = false" class="p-1 hover:bg-white/20 rounded-lg"><X class="h-5 w-5" /></button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="bg-gray-50 p-4 rounded-xl">
+                            <p class="text-sm text-gray-500">Order #</p>
+                            <p class="font-mono font-bold">{{ selectedOrder?.po_number }}</p>
+                            <p class="text-sm text-gray-500 mt-2">Total Amount</p>
+                            <p class="text-2xl font-black text-indigo-600">₱{{ formatCurrency(selectedOrder?.total_amount) }}</p>
+                        </div>
+                        <p class="text-sm text-gray-600">By accepting this order, you confirm that the quotation details are correct and you agree to the payment terms. The order will be sent to our supply chain for processing.</p>
+                        <button @click="acceptOrder" :disabled="accepting"
+                            class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition disabled:opacity-50">
+                            <Loader2 v-if="accepting" class="h-4 w-4 animate-spin inline mr-2" />
+                            {{ accepting ? 'Processing...' : 'Confirm Acceptance' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Toast Notification -->
+        <Transition name="toast">
+            <div v-if="toast.show" class="fixed bottom-8 right-8 z-50 px-6 py-3 rounded-xl shadow-lg text-white font-bold text-sm"
+                :class="toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'">
+                {{ toast.message }}
+            </div>
+        </Transition>
     </AuthenticatedLayout>
 </template>
 
+<script setup>
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { Head, router } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { ShoppingCart, RefreshCw, Search, FileText, X, Loader2 } from 'lucide-vue-next';
+
+const props = defineProps({
+    orders: {
+        type: Object,
+        default: () => ({ data: [], links: [], meta: {} })
+    },
+    stats: {
+        type: Object,
+        default: () => ({ totalOrders: 0, pendingApproval: 0, completed: 0 })
+    }
+});
+
+// Filters
+const searchTerm = ref('');
+const statusFilter = ref('all');
+
+// Accept modal
+const showAcceptModal = ref(false);
+const selectedOrder = ref(null);
+const accepting = ref(false);
+
+// Toast
+const toast = ref({ show: false, type: 'success', message: '' });
+
+const filteredOrders = computed(() => {
+    let list = props.orders.data;
+    if (searchTerm.value) {
+        const term = searchTerm.value.toLowerCase();
+        list = list.filter(o => o.po_number.toLowerCase().includes(term));
+    }
+    if (statusFilter.value !== 'all') {
+        list = list.filter(o => o.status === statusFilter.value);
+    }
+    return list;
+});
+
+const formatCurrency = (val) => Number(val).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+const formatDate = (date) => new Date(date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+
+const getStatusBadge = (status) => {
+    const map = {
+        credit_review: 'bg-orange-100 text-orange-700',
+        tier_assignment: 'bg-blue-100 text-blue-700',
+        pending_client_approval: 'bg-amber-100 text-amber-700',
+        approved: 'bg-emerald-100 text-emerald-700',
+        rejected: 'bg-red-100 text-red-700'
+    };
+    return map[status] || 'bg-gray-100 text-gray-600';
+};
+
+const formatStatus = (status) => {
+    const map = {
+        credit_review: 'Credit Review',
+        tier_assignment: 'Tier Assignment',
+        pending_client_approval: 'Pending Approval',
+        approved: 'Approved',
+        rejected: 'Rejected'
+    };
+    return map[status] || status;
+};
+
+const showToast = (type, message) => {
+    toast.value = { show: true, type, message };
+    setTimeout(() => { toast.value.show = false; }, 3000);
+};
+
+const openAcceptModal = (order) => {
+    selectedOrder.value = order;
+    showAcceptModal.value = true;
+};
+
+const acceptOrder = async () => {
+    accepting.value = true;
+    try {
+        await router.post(route('client.orders.accept', selectedOrder.value.id));
+        showAcceptModal.value = false;
+        showToast('success', `Order ${selectedOrder.value.po_number} accepted.`);
+        refreshData();
+    } catch (error) {
+        showToast('error', 'Failed to accept order.');
+    } finally {
+        accepting.value = false;
+    }
+};
+
+const refreshData = () => {
+    router.reload({ only: ['orders', 'stats'] });
+};
+</script>
+
 <style scoped>
-.tracking-tighter {
-    letter-spacing: -0.05em;
+.toast-enter-active, .toast-leave-active {
+    transition: all 0.3s ease;
+}
+.toast-enter-from, .toast-leave-to {
+    opacity: 0;
+    transform: translateY(20px);
 }
 </style>
