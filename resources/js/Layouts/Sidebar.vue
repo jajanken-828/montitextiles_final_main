@@ -1,5 +1,5 @@
 <script setup>
-import { usePage, Link } from '@inertiajs/vue3'
+import { usePage, Link, router } from '@inertiajs/vue3'
 import { route } from 'ziggy-js';
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import {
@@ -71,7 +71,9 @@ import {
     Zap,
     Activity,
     DollarSign,
-    Users as UsersIcon
+    Users as UsersIcon,
+    UserCog2,
+    Camera
 } from 'lucide-vue-next'
 
 const page = usePage()
@@ -110,6 +112,7 @@ const isInventoryOpen = ref(getStored('inventory'))
 const isProOpen = ref(getStored('pro'))
 const isManOpen = ref(getStored('man'))
 const isOrdOpen = ref(getStored('ord'))
+const isLogisticsOpen = ref(getStored('logistics'))
 
 const toggleWorkforceSub = () => { isWorkforceSubOpen.value = !isWorkforceSubOpen.value; setStored('workforce', isWorkforceSubOpen.value) }
 const toggleHrm = () => { isHrmOpen.value = !isHrmOpen.value; setStored('hrm', isHrmOpen.value) }
@@ -121,6 +124,7 @@ const toggleInventory = () => { isInventoryOpen.value = !isInventoryOpen.value; 
 const togglePro = () => { isProOpen.value = !isProOpen.value; setStored('pro', isProOpen.value) }
 const toggleMan = () => { isManOpen.value = !isManOpen.value; setStored('man', isManOpen.value) }
 const toggleOrd = () => { isOrdOpen.value = !isOrdOpen.value; setStored('ord', isOrdOpen.value) }
+const toggleLogistics = () => { isLogisticsOpen.value = !isLogisticsOpen.value; setStored('logistics', isLogisticsOpen.value) }
 
 // ─── SCROLL POSITION PERSISTENCE ──────────────────────────────────────────────
 const sidebarScrollRef = ref(null)
@@ -187,9 +191,39 @@ const hasOrdAccess = computed(() => {
     return user.value?.has_ord_access === true
 })
 
+// Logistics module access (CEO, LOG manager, or explicitly granted via logistics_access table)
+const hasLogisticsAccess = computed(() => {
+    if (user.value?.role === 'CEO') return true
+    if (user.value?.role === 'LOG' && user.value?.position === 'manager') return true
+    return user.value?.logistics_access === true
+})
+
+// Check if user is a driver or conductor (for portal links)
+const isDriver = computed(() => user.value?.driver !== null)
+const isConductor = computed(() => user.value?.conductor !== null)
+
 const isEmployeePortal = computed(() => currentUrl.value.startsWith('/dashboard/employee-ui'))
 const isClient = computed(() => !!client.value)
 const isSupplier = computed(() => !!supplier.value || currentUrl.value.startsWith('/supplier'))
+
+// ─── MANUFACTURING SUPERVISOR ROLE SWITCHER ───────────────────────────────────
+const isManufacturingSupervisor = computed(() => user.value?.is_manufacturing_supervisor === true)
+const supervisorRoles = computed(() => user.value?.supervisor_roles || [])
+const activeManufacturingRole = computed(() => user.value?.active_manufacturing_role || null)
+
+const switchManufacturingRole = (role) => {
+    router.post(route('man.supervisor.switch'), { role }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            window.location.reload()
+        }
+    })
+}
+
+const formatRoleLabel = (role) => {
+    if (!role) return ''
+    return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
 
 // ─── NAV ITEMS ────────────────────────────────────────────────────────────────
 const navItems = computed(() => {
@@ -225,6 +259,17 @@ const navItems = computed(() => {
     const items = [{ label: 'Main Dashboard', href: route('dashboard'), icon: LayoutDashboard }]
     const userRole = user.value?.role?.toUpperCase()
     const userPosition = user.value?.position?.toLowerCase()
+
+    // --- Driver / Conductor Portals (for LOG staff) ---
+    if (userRole === 'LOG' && userPosition === 'staff') {
+        if (isDriver.value) {
+            items.push({ label: 'My Deliveries', href: route('logistics.driver.portal'), icon: Truck })
+        } else if (isConductor.value) {
+            items.push({ label: 'My Trips', href: route('logistics.conductor.portal'), icon: Navigation })
+        }
+        // For logistics staff, no other modules are shown
+        return items
+    }
 
     // --- Workforce Management ---
     if (hasWorkforceAccess.value) {
@@ -324,7 +369,6 @@ const navItems = computed(() => {
             { label: 'Procurement Orders', href: route('scm.procurement-orders'), icon: ClipboardList },
             { label: 'Vendors', href: route('scm.vendors'), icon: Building2 },
         ];
-        // Only CEO sees Access Control page
         if (userRole === 'CEO') {
             scmChildren.push({ label: 'Access Control', href: route('scm.access.index'), icon: ShieldCheck });
         }
@@ -342,6 +386,7 @@ const navItems = computed(() => {
     if (hasWarehouseAccess.value) {
         const warehouseChildren = [
             { label: 'All Warehouses', href: route('warehouse.index'), icon: Warehouse },
+            { label: 'Monitor', href: route('warehouse.index'), icon: Eye },
             { label: 'Receiving', href: route('warehouse.receiving'), icon: Truck },
             { label: 'Packages', href: route('warehouse.packages'), icon: Package },
             { label: 'Rejects', href: route('warehouse.rejects'), icon: XCircle },
@@ -386,10 +431,10 @@ const navItems = computed(() => {
         const proChildren = [
             { label: 'Dashboard', href: route('pro.manager.dashboard'), icon: LayoutDashboard },
             { label: 'Quotations', href: route('pro.manager.supplier-quotations'), icon: FileText },
-            { label: 'Requests', href: route('pro.manager.material-requests'), icon: ClipboardList },
             { label: 'Receipts', href: route('pro.manager.receipt'), icon: Send },
         ];
         if (userRole === 'CEO') {
+            proChildren.push({ label: 'Access Control', href: route('pro.access.index'), icon: ShieldCheck });
             items.push({ label: 'Procurement', icon: ShoppingCart, isDropdown: true, isOpen: isProOpen.value, toggle: togglePro, children: proChildren });
         } else {
             items.push(...proChildren);
@@ -404,7 +449,7 @@ const navItems = computed(() => {
             { label: 'Rejected Items', href: route('man.manager.rejected'), icon: XCircle },
             { label: 'Interviews', href: route('man.interview.index'), icon: Eye },
             { label: 'Trainees', href: route('man.trainee.index'), icon: Award },
-            { label: 'Access Control', href: route('man.access.index'), icon: ShieldCheck },
+            { label: 'Access Control', href: route('man.access.manage'), icon: ShieldCheck },
         ];
         if (userRole === 'CEO') {
             items.push({ label: 'Manufacturing', icon: Factory, isDropdown: true, isOpen: isManOpen.value, toggle: toggleMan, children: manChildren });
@@ -430,6 +475,31 @@ const navItems = computed(() => {
             isOpen: isOrdOpen.value,
             toggle: toggleOrd,
             children: ordChildren
+        });
+    }
+
+    // --- Logistics Module (for managers, CEO, and granted users) ---
+    if (hasLogisticsAccess.value) {
+        const logisticsChildren = [
+    { label: 'Dashboard', href: route('logistics.dashboard'), icon: LayoutDashboard },
+    { label: 'Load', href: route('logistics.load.index'), icon: Package },
+    { label: 'Dispatch', href: route('logistics.dispatch.index'), icon: Send },
+    { label: 'Fleet', href: route('logistics.fleet.index'), icon: Truck },
+    { label: 'Drivers', href: route('logistics.drivers.index'), icon: Users },
+    { label: 'Routes', href: route('logistics.routes'), icon: Navigation },
+    { label: 'Proof', href: route('logistics.proof.index'), icon: Camera },
+    { label: 'Reports', href: route('logistics.reports.index'), icon: FileText },
+];
+if (userRole === 'CEO') {
+    logisticsChildren.push({ label: 'Access Control', href: route('logistics.access.index'), icon: ShieldCheck });
+}
+        items.push({
+            label: 'Logistics',
+            icon: Truck,
+            isDropdown: true,
+            isOpen: isLogisticsOpen.value,
+            toggle: toggleLogistics,
+            children: logisticsChildren
         });
     }
 
@@ -583,6 +653,28 @@ const logoutRoute = computed(() => isClient.value ? route('client.logout') : (is
                                 class="p-2 rounded-xl bg-gray-100/80 dark:bg-gray-800/80 text-gray-400 hover:text-red-500 hover:bg-red-50/80 dark:hover:bg-red-900/20 transition-all duration-300 backdrop-blur-sm">
                                 <LogOut class="h-3.5 w-3.5" />
                             </button>
+                        </div>
+
+                        <!-- Manufacturing Supervisor Role Switcher -->
+                        <div v-if="isManufacturingSupervisor && supervisorRoles.length > 0"
+                            class="mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
+                            <p class="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                                <UserCog2 class="w-3 h-3" /> SWITCH ROLE
+                            </p>
+                            <div class="space-y-1">
+                                <button v-for="role in supervisorRoles" :key="role.manufacturing_role"
+                                    @click="switchManufacturingRole(role.manufacturing_role)"
+                                    :class="[
+                                        activeManufacturingRole === role.manufacturing_role
+                                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500/30'
+                                            : 'bg-gray-100/70 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                                    ]"
+                                    class="w-full text-left text-[11px] font-medium px-2 py-1.5 rounded-lg transition-all">
+                                    {{ formatRoleLabel(role.manufacturing_role) }}
+                                    <span v-if="activeManufacturingRole === role.manufacturing_role"
+                                        class="float-right text-blue-500">✓</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

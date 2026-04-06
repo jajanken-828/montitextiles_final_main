@@ -13,15 +13,4 @@ class ProDashboardController extends Controller
         return Redirect::route('pro.manager.material-requests');
     }
 
-    public function staffDashboard()
-    {
-        return Inertia::render('Dashboard/PRO/Employee/index', [
-            'user' => auth()->user(),
-            'stats' => [
-                'activeBids' => 0,
-                'pendingContracts' => 0,
-                'supplierIssues' => 0,
-            ],
-        ]);
-    }
 }

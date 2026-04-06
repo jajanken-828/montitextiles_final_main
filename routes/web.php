@@ -44,8 +44,21 @@ use App\Http\Controllers\inv\InvDashboardController;
 use App\Http\Controllers\inv\MaterialController;
 use App\Http\Controllers\inv\ProductController;
 use App\Http\Controllers\it\ItDashboardController;
+use App\Http\Controllers\logistics\ConductorController;
+use App\Http\Controllers\logistics\DispatchController;
+use App\Http\Controllers\logistics\DriverController;
+use App\Http\Controllers\logistics\DriversController;
+use App\Http\Controllers\logistics\FleetController;
+use App\Http\Controllers\logistics\LoadController;
+use App\Http\Controllers\logistics\LogAccessController;
+use App\Http\Controllers\logistics\LogisticsDashboardController;
+use App\Http\Controllers\logistics\ProofController;
+use App\Http\Controllers\logistics\ReportController;
+use App\Http\Controllers\logistics\RoutesController;
 use App\Http\Controllers\man\Manager\ManufacturingManagerController;
 use App\Http\Controllers\man\ManDashboardController;
+use App\Http\Controllers\man\ManSupervisorController;
+use App\Http\Controllers\man\ManAccessController;
 use App\Http\Controllers\man\Staff\CheckerQualityController;
 use App\Http\Controllers\man\Staff\DyeingColorController;
 use App\Http\Controllers\man\Staff\DyeingFabricSoftenerController;
@@ -59,7 +72,7 @@ use App\Http\Controllers\ord\OrdAccessController;
 use App\Http\Controllers\ord\OrdDeliveryController;
 use App\Http\Controllers\ord\OrdOrdersController;
 use App\Http\Controllers\ord\OrdProductionsController;
-use App\Http\Controllers\pro\manager\ProcurementController;
+use App\Http\Controllers\pro\ProcurementController;
 use App\Http\Controllers\pro\ProDashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\proj\ProjDashboardController;
@@ -268,6 +281,16 @@ Route::prefix('dashboard/man')->name('man.')->middleware(['auth', 'verified'])->
     Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
 
+    // Supervisor role switching
+    Route::post('/supervisor/switch', [ManSupervisorController::class, 'switchRole'])->name('supervisor.switch');
+
+    // Manager access control (supervisor management)
+    Route::middleware(['role:MAN', 'position:manager'])->group(function () {
+        Route::get('/access/manage', [ManAccessController::class, 'index'])->name('access.manage');
+        Route::post('/access/assign-supervisor', [ManAccessController::class, 'assignSupervisor'])->name('access.assign-supervisor');
+        Route::post('/access/update-roles', [ManAccessController::class, 'updateSupervisorRoles'])->name('access.update-roles');
+    });
+
     Route::get('/staff', [ManDashboardController::class, 'staffDashboard'])
         ->middleware(['role:MAN', 'position:staff'])
         ->name('employee.dashboard');
@@ -282,83 +305,101 @@ Route::prefix('dashboard/man')->name('man.')->middleware(['auth', 'verified'])->
     });
 
     Route::middleware(['role:MAN', 'position:staff'])->group(function () {
-        Route::prefix('knitting-yarn')->name('staff.knitting-yarn.')->controller(KnittingYarnController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/knitting-yarn', 'knittingYarn')->name('page');
-            Route::post('/fabric', 'storeFabric')->name('store-fabric');
-            Route::get('/reports', 'reports')->name('reports');
-            Route::post('/machine-report', 'reportMachine')->name('report-machine');
-        });
+        Route::prefix('knitting-yarn')->name('staff.knitting-yarn.')->controller(KnittingYarnController::class)
+            ->middleware('man.role:knitting_yarn')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/knitting-yarn', 'knittingYarn')->name('page');
+                Route::post('/fabric', 'storeFabric')->name('store-fabric');
+                Route::get('/reports', 'reports')->name('reports');
+                Route::post('/machine-report', 'reportMachine')->name('report-machine');
+            });
 
-        Route::prefix('dyeing-color')->name('staff.dyeing-color.')->controller(DyeingColorController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/dyeing-color', 'dyeingColor')->name('page');
-            Route::post('/dye', 'storeDye')->name('store-dye');
-            Route::get('/reports', 'reports')->name('reports');
-            Route::post('/machine-report', 'reportMachine')->name('report-machine');
-        });
+        Route::prefix('dyeing-color')->name('staff.dyeing-color.')->controller(DyeingColorController::class)
+            ->middleware('man.role:dyeing_color')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/dyeing-color', 'dyeingColor')->name('page');
+                Route::post('/dye', 'storeDye')->name('store-dye');
+                Route::get('/reports', 'reports')->name('reports');
+                Route::post('/machine-report', 'reportMachine')->name('report-machine');
+            });
 
-        Route::prefix('dyeing-fabric-softener')->name('staff.dyeing-fabric-softener.')->controller(DyeingFabricSoftenerController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/dyeing-fabric-softener', 'dyeingFabricSoftener')->name('page');
-            Route::post('/soften', 'storeSoftener')->name('store-soften');
-            Route::get('/reports', 'reports')->name('reports');
-            Route::post('/machine-report', 'reportMachine')->name('report-machine');
-        });
+        Route::prefix('dyeing-fabric-softener')->name('staff.dyeing-fabric-softener.')->controller(DyeingFabricSoftenerController::class)
+            ->middleware('man.role:dyeing_fabric_softener')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/dyeing-fabric-softener', 'dyeingFabricSoftener')->name('page');
+                Route::post('/soften', 'storeSoftener')->name('store-soften');
+                Route::get('/reports', 'reports')->name('reports');
+                Route::post('/machine-report', 'reportMachine')->name('report-machine');
+            });
 
-        Route::prefix('dyeing-squeezer')->name('staff.dyeing-squeezer.')->controller(DyeingSqueezerController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/dyeing-squeezer', 'dyeingSqueezer')->name('page');
-            Route::post('/squeeze', 'storeSqueezer')->name('store-squeeze');
-            Route::get('/reports', 'reports')->name('reports');
-            Route::post('/machine-report', 'reportMachine')->name('report-machine');
-        });
+        Route::prefix('dyeing-squeezer')->name('staff.dyeing-squeezer.')->controller(DyeingSqueezerController::class)
+            ->middleware('man.role:dyeing_squeezer')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/dyeing-squeezer', 'dyeingSqueezer')->name('page');
+                Route::post('/squeeze', 'storeSqueezer')->name('store-squeeze');
+                Route::get('/reports', 'reports')->name('reports');
+                Route::post('/machine-report', 'reportMachine')->name('report-machine');
+            });
 
-        Route::prefix('dyeing-ironing')->name('staff.dyeing-ironing.')->controller(DyeingIroningController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/dyeing-ironing', 'dyeingIroning')->name('page');
-            Route::post('/iron', 'storeIron')->name('store-iron');
-            Route::get('/reports', 'reports')->name('reports');
-            Route::post('/machine-report', 'reportMachine')->name('report-machine');
-        });
+        Route::prefix('dyeing-ironing')->name('staff.dyeing-ironing.')->controller(DyeingIroningController::class)
+            ->middleware('man.role:dyeing_ironing')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/dyeing-ironing', 'dyeingIroning')->name('page');
+                Route::post('/iron', 'storeIron')->name('store-iron');
+                Route::get('/reports', 'reports')->name('reports');
+                Route::post('/machine-report', 'reportMachine')->name('report-machine');
+            });
 
-        Route::prefix('dyeing-forming')->name('staff.dyeing-forming.')->controller(DyeingFormingController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/dyeing-forming', 'dyeingForming')->name('page');
-            Route::post('/form', 'storeForm')->name('store-form');
-            Route::get('/reports', 'reports')->name('reports');
-            Route::post('/machine-report', 'reportMachine')->name('report-machine');
-        });
+        Route::prefix('dyeing-forming')->name('staff.dyeing-forming.')->controller(DyeingFormingController::class)
+            ->middleware('man.role:dyeing_forming')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/dyeing-forming', 'dyeingForming')->name('page');
+                Route::post('/form', 'storeForm')->name('store-form');
+                Route::get('/reports', 'reports')->name('reports');
+                Route::post('/machine-report', 'reportMachine')->name('report-machine');
+            });
 
-        Route::prefix('dyeing-packaging')->name('staff.dyeing-packaging.')->controller(DyeingPackagingController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/packaging', 'packaging')->name('page');
-            Route::post('/package', 'storePackage')->name('store-package');
-        });
+        Route::prefix('dyeing-packaging')->name('staff.dyeing-packaging.')->controller(DyeingPackagingController::class)
+            ->middleware('man.role:dyeing_packaging')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/packaging', 'packaging')->name('page');
+                Route::post('/package', 'storePackage')->name('store-package');
+            });
 
-        Route::prefix('maintenance-checker')->name('staff.maintenance-checker.')->controller(MaintenanceCheckerController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/maintenance', 'maintenance')->name('page');
-            Route::post('/machine', 'storeMachine')->name('store-machine');
-            Route::patch('/machine/{id}', 'updateMachineStatus')->name('update-machine');
-            Route::get('/reports', 'reports')->name('reports');
-            Route::patch('/report/{id}', 'resolveReport')->name('resolve-report');
-        });
+        Route::prefix('maintenance-checker')->name('staff.maintenance-checker.')->controller(MaintenanceCheckerController::class)
+            ->middleware('man.role:maintenance_checker')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/maintenance', 'maintenance')->name('page');
+                Route::post('/machine', 'storeMachine')->name('store-machine');
+                Route::patch('/machine/{id}', 'updateMachineStatus')->name('update-machine');
+                Route::get('/reports', 'reports')->name('reports');
+                Route::patch('/report/{id}', 'resolveReport')->name('resolve-report');
+            });
 
-        Route::prefix('checker-quality')->name('staff.checker-quality.')->controller(CheckerQualityController::class)->group(function () {
-            Route::get('/', 'index')->name('dashboard');
-            Route::get('/production', 'production')->name('production');
-            Route::post('/order/{id}/check-inventory', 'checkInventory')->name('check-inventory');
-            Route::post('/order/{id}/start-production', 'startProduction')->name('start-production');
-            Route::post('/fabric/{id}/pass', 'passFabric')->name('pass-fabric');
-            Route::post('/dye/{id}/pass', 'passDye')->name('pass-dye');
-            Route::post('/softener/{id}/pass', 'passSoftener')->name('pass-softener');
-            Route::post('/squeezer/{id}/pass', 'passSqueezer')->name('pass-squeezer');
-            Route::post('/iron/{id}/pass', 'passIron')->name('pass-iron');
-            Route::post('/form/{id}/pack', 'packForm')->name('pack-form');
-            Route::post('/form/{id}/reject', 'rejectForm')->name('reject-form');
-            Route::post('/package/{id}/assign-to-order', 'assignPackageToOrder')->name('assign-package');
-        });
+        Route::prefix('checker-quality')->name('staff.checker-quality.')->controller(CheckerQualityController::class)
+            ->middleware('man.role:checker_quality')
+            ->group(function () {
+                Route::get('/', 'index')->name('dashboard');
+                Route::get('/production', 'production')->name('production');
+                Route::post('/order/{id}/check-inventory', 'checkInventory')->name('check-inventory');
+                Route::post('/order/{id}/start-production', 'startProduction')->name('start-production');
+                Route::post('/fabric/{id}/pass', 'passFabric')->name('pass-fabric');
+                Route::post('/dye/{id}/pass', 'passDye')->name('pass-dye');
+                Route::post('/softener/{id}/pass', 'passSoftener')->name('pass-softener');
+                Route::post('/squeezer/{id}/pass', 'passSqueezer')->name('pass-squeezer');
+                Route::post('/iron/{id}/pass', 'passIron')->name('pass-iron');
+                Route::post('/form/{id}/pack', 'packForm')->name('pack-form');
+                Route::post('/form/{id}/reject', 'rejectForm')->name('reject-form');
+                Route::post('/package/{id}/assign-to-order', 'assignPackageToOrder')->name('assign-package');
+            });
     });
 });
 
@@ -441,6 +482,52 @@ Route::prefix('dashboard/ord')->name('ord.')->middleware(['auth', 'verified', 'c
     // Access Control (CEO only)
     Route::get('/access-control', [OrdAccessController::class, 'index'])->name('access.index');
     Route::post('/access-control/update', [OrdAccessController::class, 'update'])->name('access.update');
+});
+
+/*
+|--------------------------------------------------------------------------
+| LOGISTICS DASHBOARD & ROUTES (FIXED ROUTE NAMES)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'verified'])->prefix('dashboard/logistics')->name('logistics.')->group(function () {
+    // Main Dashboard
+    Route::get('/', [LogisticsDashboardController::class, 'index'])->name('dashboard');
+
+    // Fleet Management
+    Route::get('/fleet', [FleetController::class, 'index'])->name('fleet.index');
+    Route::post('/fleet', [FleetController::class, 'store'])->name('fleet.store');
+    Route::patch('/fleet/{truck}', [FleetController::class, 'update'])->name('fleet.update');
+    Route::delete('/fleet/{truck}', [FleetController::class, 'destroy'])->name('fleet.destroy');
+
+    // Drivers & Conductors
+    Route::get('/drivers', [DriversController::class, 'index'])->name('drivers.index');
+    Route::post('/drivers', [DriversController::class, 'store'])->name('drivers.store');
+    Route::get('/drivers/{driver}', [DriversController::class, 'show'])->name('drivers.show');
+
+    // Loading & Dispatch
+    Route::get('/load', [LoadController::class, 'index'])->name('load.index');
+    Route::post('/load/dispatch', [LoadController::class, 'passToDispatch'])->name('load.pass');
+
+    Route::get('/dispatch', [DispatchController::class, 'index'])->name('dispatch.index');
+    Route::post('/dispatch/{delivery}', [DispatchController::class, 'assignAndDispatch'])->name('dispatch.assign');
+
+    // Portals (Driver & Conductor)
+    Route::get('/driver-portal', [DriverController::class, 'index'])->name('driver.portal');
+    Route::post('/driver-portal/{delivery}/transit', [DriverController::class, 'markInTransit'])->name('driver.transit');
+    Route::post('/driver-portal/{delivery}/proof', [DriverController::class, 'uploadProof'])->name('driver.proof');
+
+    Route::get('/conductor-portal', [ConductorController::class, 'index'])->name('conductor.portal');
+    Route::post('/conductor-portal/{delivery}/report', [ConductorController::class, 'storeReport'])->name('conductor.report');
+
+    // Reports & Access
+    Route::get('/proof-of-delivery', [ProofController::class, 'index'])->name('proof.index');
+    Route::get('/conductor-reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/access-control', [LogAccessController::class, 'index'])->name('access.index');
+    Route::post('/access-control', [LogAccessController::class, 'update'])->name('access.update');
+
+    // ***** FIXED: Route for managing delivery routes *****
+    // Changed from ->name('routes.index') to ->name('routes') so Ziggy name becomes 'logistics.routes'
+    Route::get('/routes', [RoutesController::class, 'index'])->name('routes');
 });
 
 /*
@@ -543,10 +630,10 @@ Route::prefix('dashboard/pro')->name('pro.')->middleware(['auth', 'verified'])->
         Route::post('/quotations/{responseId}/decline', [ProcurementController::class, 'declineQuotation'])->name('quotations.decline');
         Route::get('/receipt', [ProcurementController::class, 'receipt'])->name('receipt');
         Route::post('/purchase-orders/{poId}/send', [ProcurementController::class, 'sendPurchaseOrder'])->name('purchase-orders.send');
-    });
-
-    Route::middleware(['role:PRO', 'position:staff'])->group(function () {
-        Route::get('/staff', [ProDashboardController::class, 'staffDashboard'])->name('employee.dashboard');
+        Route::get('/access', [ProAccessController::class, 'index'])->name('access.index')
+            ->middleware('role:CEO');
+        Route::post('/access/update', [ProAccessController::class, 'update'])->name('access.update')
+            ->middleware('role:CEO');
     });
 });
 
@@ -645,7 +732,6 @@ Route::middleware('auth:client')->prefix('partner')->name('client.')->group(func
     Route::post('/support/complaint', [ClientSupportController::class, 'storeComplaint'])->name('support.complaint');
 
     // Legacy routes (preserved for backward compatibility)
-    // Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');
     Route::post('/purchase-order', [ClientDashboardController::class, 'placeOrder'])->name('purchase-order.store');
     Route::post('/quotation/{po}/accept', [ClientDashboardController::class, 'acceptQuotation'])->name('quotation.accept');
 });

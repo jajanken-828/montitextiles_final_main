@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\ManufacturingSupervisorRole;
 
 class User extends Authenticatable
 {
@@ -329,6 +330,12 @@ class User extends Authenticatable
         return $this->belongsToMany(Warehouse::class, 'user_inventory_access', 'user_id', 'warehouse_id');
     }
 
+    // app/Models/User.php
+    public function proAccess()
+    {
+        return $this->hasOne(ProAccess::class);
+    }
+
     /**
      * Check if user has any warehouse assigned (raw DB query to avoid ambiguous column).
      */
@@ -357,6 +364,21 @@ class User extends Authenticatable
     public function scmAccess()
     {
         return $this->hasOne(ScmAccessPermission::class);
+    }
+
+    public function supervisorRoles()
+    {
+        return $this->hasMany(ManufacturingSupervisorRole::class);
+    }
+
+    public function isManufacturingSupervisor()
+    {
+        return $this->is_manufacturing_supervisor;
+    }
+
+    public function getAssignedManufacturingRoles()
+    {
+        return $this->supervisorRoles->pluck('manufacturing_role')->toArray();
     }
 
     /**

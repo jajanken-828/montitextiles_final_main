@@ -34,5 +34,7 @@ class Kernel extends HttpKernel
         'can.access.warehouse' => \App\Http\Middleware\CanAccessWarehouse::class,
         'can.access.inventory' => \App\Http\Middleware\CanAccessInventory::class,
         'can.access.scm' => \App\Http\Middleware\CanAccessScm::class,
+        'can.access.procurement' => \App\Http\Middleware\CanAccessProcurement::class,
+        'can.access.logistics' => \App\Http\Middleware\CheckLogisticsAccess::class,
     ];
 }

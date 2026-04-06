@@ -7,6 +7,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Client;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Carbon\Carbon;
 
 class OrdOrdersController extends Controller
 {
@@ -21,13 +22,17 @@ class OrdOrdersController extends Controller
             ->whereMonth('delivery_date', $month)
             ->get()
             ->map(function ($order) {
+                // Safely format the delivery date
+                $deliveryDate = $order->delivery_date;
+                $formattedDate = $deliveryDate ? Carbon::parse($deliveryDate)->format('Y-m-d') : null;
+
                 return [
                     'id' => $order->id,
                     'po_number' => $order->po_number,
                     'client_name' => $order->client->company_name,
                     'total_amount' => $order->total_amount,
                     'status' => $order->status,
-                    'delivery_date' => $order->delivery_date->format('Y-m-d'),
+                    'delivery_date' => $formattedDate,
                 ];
             });
 

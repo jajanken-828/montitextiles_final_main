@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\pro\manager;
+namespace App\Http\Controllers\pro;
 
 use App\Http\Controllers\Controller;
 use App\Models\inv\Warehouse;
@@ -64,7 +64,7 @@ class ProcurementController extends Controller
                 'status' => $r->status,
             ]);
 
-        return Inertia::render('Dashboard/PRO/Manager/mat_req', [
+        return Inertia::render('Dashboard/PRO/mat_req', [
             'materialRequests' => $requests,
             'warehouses' => $warehouses,
             'suppliers' => $suppliers,
@@ -152,7 +152,7 @@ class ProcurementController extends Controller
                 ]),
             ]);
 
-        return Inertia::render('Dashboard/PRO/Manager/supp_quo', ['rfqs' => $rfqs]);
+        return Inertia::render('Dashboard/PRO/supp_quo', ['rfqs' => $rfqs]);
     }
 
     public function acceptQuotation(Request $request, $responseId)
@@ -268,7 +268,7 @@ class ProcurementController extends Controller
                 'status' => $inv->status,
             ]);
 
-        return Inertia::render('Dashboard/PRO/Manager/receipt', [
+        return Inertia::render('Dashboard/PRO/receipt', [
             'purchaseOrders' => $purchaseOrders,
             'invoices' => $invoices,
         ]);
