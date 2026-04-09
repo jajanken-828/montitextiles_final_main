@@ -29,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'man.role' => \App\Http\Middleware\EnsureManufacturingRole::class,
             'can.access.procurement' => \App\Http\Middleware\CanAccessProcurement::class,
             'can.access.logistics' => \App\Http\Middleware\CheckLogisticsAccess::class,
+            'module.access' => \App\Http\Middleware\CheckModuleAccess::class,
+            'can.access.man.manager' => \App\Http\Middleware\CheckManufacturingManagerAccess::class, // NEW
         ]);
 
         /**
@@ -37,12 +39,9 @@ return Application::configure(basePath: dirname(__DIR__))
          * and sends them to the correct dashboard.
          */
         $middleware->redirectUsersTo(function () {
-            // If a B2B Client is logged in, send them to the Partner Portal
             if (Auth::guard('client')->check()) {
                 return route('client.dashboard');
             }
-
-            // Otherwise (Employees/Staff), send them to the main ERP Dashboard
             return route('dashboard');
         });
 
@@ -55,7 +54,6 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('partner/*') || $request->is('client/*')) {
                 return route('client.login');
             }
-
             return route('login');
         });
     })

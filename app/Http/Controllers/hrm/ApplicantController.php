@@ -7,6 +7,7 @@ use App\Models\Applicant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use App\Models\Position;
 
 class ApplicantController extends Controller
 {
@@ -21,7 +22,7 @@ class ApplicantController extends Controller
             ->where('archived', false)
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(fn ($a) => $this->formatApplicant($a));
+            ->map(fn($a) => $this->formatApplicant($a));
 
         return Inertia::render('Dashboard/HRM/Application', ['applicants' => $applicants]);
     }
@@ -76,7 +77,7 @@ class ApplicantController extends Controller
         $rejectedItems = Applicant::where('archived', true)
             ->orderBy('updated_at', 'desc')
             ->get()
-            ->map(fn ($a) => $this->formatApplicant($a));
+            ->map(fn($a) => $this->formatApplicant($a));
 
         // FIX: Use correct path and prop name (rejectedItems)
         return Inertia::render('Dashboard/HRM/Reject', ['rejectedItems' => $rejectedItems]);
@@ -89,6 +90,8 @@ class ApplicantController extends Controller
      */
     public function store(Request $request)
     {
+        // dd($request->all());
+        
         // Validation rules for the complete application form
         $validated = $request->validate([
             // Personal & Contact
@@ -104,10 +107,10 @@ class ApplicantController extends Controller
             'state_province' => 'required|string',
             'postal_zip_code' => 'required|string',
             'position_applied' => 'required|string',
-            'expected_salary' => 'nullable|numeric',
-            'notice_period' => 'required|string|in:Immediate,15 Days,30 Days,60 Days',
+            // 'expected_salary' => 'nullable|numeric',
+            'notice_period' => 'required|string|in:Immediate,15_Days,30_Days,60_Days',
 
-            'textile_experience' => 'nullable|string',
+            // 'textile_experience' => 'nullable|string',
 
             // Personal details
             'date_of_birth' => 'nullable|date',
@@ -187,6 +190,7 @@ class ApplicantController extends Controller
         $validated['archived'] = false;
 
         // Create the applicant
+    
         $applicant = Applicant::create($validated);
 
         return back()->with('message', 'Applicant added successfully.');
@@ -202,15 +206,25 @@ class ApplicantController extends Controller
     {
         return [
             'id' => $applicant->id,
-            'name' => $applicant->first_name.' '.$applicant->last_name,
+            'name' => $applicant->name, // Using the getNameAttribute() from your model
             'first_name' => $applicant->first_name,
+            'middle_name' => $applicant->middle_name,
             'last_name' => $applicant->last_name,
+            'image' => $applicant->image,
+            // binago
+'image_url' => $applicant->image ? Storage::url($applicant->image) : null, // Using the getImageUrlAttribute()
+
+            // Contact & Address
             'email' => $applicant->email,
             'phone_number' => $applicant->phone_number,
+            'contact_number' => $applicant->contact_number,
             'street_address' => $applicant->street_address,
+            'street_address_line2' => $applicant->street_address_line2,
             'city' => $applicant->city,
             'state_province' => $applicant->state_province,
             'postal_zip_code' => $applicant->postal_zip_code,
+
+            // Application Details
             'position_applied' => $applicant->position_applied,
             'expected_salary' => $applicant->expected_salary,
             'notice_period' => $applicant->notice_period,
@@ -218,29 +232,76 @@ class ApplicantController extends Controller
             'status' => $applicant->status,
             'assigned_module' => $applicant->assigned_module,
             'rejection_reason' => $applicant->rejection_reason,
+            'interview_feedback' => $applicant->interview_feedback,
             'archived' => $applicant->archived,
-            'created_at' => $applicant->created_at,
-            'updated_at' => $applicant->updated_at,
-            'sss_file_url' => $applicant->sss_file ? Storage::url($applicant->sss_file) : null,
-            'philhealth_file_url' => $applicant->philhealth_file ? Storage::url($applicant->philhealth_file) : null,
-            'pagibig_file_url' => $applicant->pagibig_file ? Storage::url($applicant->pagibig_file) : null,
-            // Additional fields for detailed view
+
+            // Personal Details
             'date_of_birth' => $applicant->date_of_birth,
             'place_of_birth' => $applicant->place_of_birth,
             'citizenship' => $applicant->citizenship,
+            'weight' => $applicant->weight,
+            'height' => $applicant->height,
             'civil_status' => $applicant->civil_status,
+            'sex' => $applicant->sex,
+            'age' => $applicant->age,
             'religion' => $applicant->religion,
+            'languages' => $applicant->languages,
+
+            // Government IDs
             'sss_number' => $applicant->sss_number,
             'philhealth_number' => $applicant->philhealth_number,
             'pagibig_number' => $applicant->pagibig_number,
+
+            // File URLs (using the ternary operator you had, though your model accessors could also do this!)
+            'sss_file_url' => $applicant->sss_file ? Storage::url($applicant->sss_file) : null,
+            'philhealth_file_url' => $applicant->philhealth_file ? Storage::url($applicant->philhealth_file) : null,
+            'pagibig_file_url' => $applicant->pagibig_file ? Storage::url($applicant->pagibig_file) : null,
+
+            // Family
             'spouse_name' => $applicant->spouse_name,
+            'spouse_occupation' => $applicant->spouse_occupation,
+            'spouse_address' => $applicant->spouse_address,
+            'number_of_children' => $applicant->number_of_children,
+            'children' => $applicant->children,
             'mother_name' => $applicant->mother_name,
+            'mother_address' => $applicant->mother_address,
             'father_name' => $applicant->father_name,
+            'father_address' => $applicant->father_address,
+
+            // Emergency Contact
+            'emergency_name' => $applicant->emergency_name,
+            'emergency_relationship' => $applicant->emergency_relationship,
+            'emergency_phone' => $applicant->emergency_phone,
+            'emergency_address' => $applicant->emergency_address,
+
+            // Education & Skills
             'elementary_school' => $applicant->elementary_school,
+            'elementary_year' => $applicant->elementary_year,
             'high_school' => $applicant->high_school,
+            'high_year' => $applicant->high_year,
             'college' => $applicant->college,
+            'college_year' => $applicant->college_year,
+            'vocational' => $applicant->vocational,
+            'vocational_year' => $applicant->vocational_year,
             'special_skills' => $applicant->special_skills,
+            'machine_operation' => $applicant->machine_operation,
+
+            // Employment History
+            'has_employment_record' => $applicant->has_employment_record,
             'employment_records' => $applicant->employment_records,
+            'previous_employment_company' => $applicant->previous_employment_company,
+            'previous_employment_when' => $applicant->previous_employment_when,
+            'previous_employment_position' => $applicant->previous_employment_position,
+            'previous_employment_department' => $applicant->previous_employment_department,
+
+            // Referrals & Relations
+            'referred_by' => $applicant->referred_by,
+            'referred_by_address' => $applicant->referred_by_address,
+            'related_employees' => $applicant->related_employees,
+
+            // Timestamps
+            'created_at' => $applicant->created_at,
+            'updated_at' => $applicant->updated_at,
         ];
     }
 }

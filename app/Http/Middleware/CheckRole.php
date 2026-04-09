@@ -35,10 +35,18 @@ class CheckRole
         // Convert allowed roles to uppercase for case-insensitive matching
         $allowedRoles = array_map('strtoupper', $roles);
 
-        if (! in_array($user->role, $allowedRoles)) {
-            abort(403, 'You do not have permission to access this resource.');
+        // For secretaries and general managers: they retain their original role's permissions
+        if (in_array($user->position, ['secretary', 'general_manager'])) {
+            if (in_array($user->role, $allowedRoles)) {
+                return $next($request);
+            }
         }
 
-        return $next($request);
+        // Normal check: user's role must be in the allowed roles list
+        if (in_array($user->role, $allowedRoles)) {
+            return $next($request);
+        }
+
+        abort(403, 'You do not have permission to access this resource.');
     }
 }

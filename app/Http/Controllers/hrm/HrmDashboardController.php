@@ -44,7 +44,7 @@ class HrmDashboardController extends Controller
         ];
 
         // 3. Department distribution (for chart)
-        $departments = ['HRM', 'SCM', 'FIN', 'MAN', 'INV', 'ORD', 'WAR', 'CRM', 'ECO', 'PRO', 'PROJ', 'IT'];
+        $departments = ['HRM', 'MAN','CRM', 'LOG'];
         $departmentCounts = [];
         foreach ($departments as $dept) {
             $departmentCounts[$dept] = User::where('role', $dept)

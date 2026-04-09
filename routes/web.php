@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\ClientAuthController;
 use App\Http\Controllers\Auth\SupplierAuthController;
 use App\Http\Controllers\ceo\CeoDashboardController;
+use App\Http\Controllers\ceo\CeoAccessController;
 use App\Http\Controllers\client\ClientConversationController;
 use App\Http\Controllers\client\ClientDashboardController;
 use App\Http\Controllers\client\ClientInvoiceController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\hrm\InterviewController;
 use App\Http\Controllers\hrm\OnboardingController;
 use App\Http\Controllers\hrm\PayrollController;
 use App\Http\Controllers\hrm\TraineeController;
+use App\Http\Controllers\hrm\PositionController;
 use App\Http\Controllers\inv\BomController;
 use App\Http\Controllers\inv\CheckerController;
 use App\Http\Controllers\inv\InvAccessController;
@@ -57,7 +59,6 @@ use App\Http\Controllers\logistics\ReportController;
 use App\Http\Controllers\logistics\RoutesController;
 use App\Http\Controllers\man\Manager\ManufacturingManagerController;
 use App\Http\Controllers\man\ManDashboardController;
-use App\Http\Controllers\man\ManSupervisorController;
 use App\Http\Controllers\man\ManAccessController;
 use App\Http\Controllers\man\Staff\CheckerQualityController;
 use App\Http\Controllers\man\Staff\DyeingColorController;
@@ -172,12 +173,15 @@ Route::prefix('dashboard/trainee')->middleware(['auth', 'verified', 'position:tr
 | Human Resources Management (HRM) Routes
 |--------------------------------------------------------------------------
 */
+Route::get('/active-positions', [PositionController::class, 'getActivePositions'])->name('positions.active');
 Route::prefix('dashboard/hrm')->name('hrm.')->middleware(['auth', 'verified'])->group(function () {
     Route::get('/', [HrmDashboardController::class, 'index'])->name('dashboard');
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/{id}', [EmployeeController::class, 'show'])->name('employees.show');
     Route::patch('/employees/{id}', [EmployeeController::class, 'update'])->name('employees.update');
     Route::delete('/employees/{id}', [EmployeeController::class, 'toggleStatus'])->name('employees.toggle-status');
+    Route::post('/employees/{id}/promote-to-manager', [EmployeeController::class, 'promoteToManager'])->name('employees.promote-to-manager');
+Route::post('/employees/{id}/demote-to-staff', [EmployeeController::class, 'demoteToStaff'])->name('employees.demote-to-staff');
     Route::get('/applications', [HrmApplicantController::class, 'index'])->name('applications.index');
     Route::post('/applications', [HrmApplicantController::class, 'store'])->name('applications.store');
     Route::post('/applications/{id}/accept', [HrmApplicantController::class, 'accept'])->name('applications.accept');
@@ -198,7 +202,15 @@ Route::prefix('dashboard/hrm')->name('hrm.')->middleware(['auth', 'verified'])->
     Route::post('/access/update', [AccessController::class, 'update'])->name('access.update');
     Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll');
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
+     Route::get('/positions', [PositionController::class, 'index']);
+    Route::post('/positions', [PositionController::class, 'store'])->name('positions.store');
+    Route::patch('/positions/{id}/toggle-status', [PositionController::class, 'toggleStatus'])->name('positions.toggle-status');
+    Route::delete('/positions/{id}', [PositionController::class, 'destroy'])->name('positions.destroy');
+    Route::patch('/positions/{id}', [PositionController::class, 'update'])->name('positions.update');
+
 });
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -228,10 +240,10 @@ Route::prefix('dashboard/workforce')->name('workforce.')->middleware(['auth', 'v
 
 /*
 |--------------------------------------------------------------------------
-| Supply Chain Management (SCM) Routes - RESTRUCTURED
+| Supply Chain Management (SCM) Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/scm')->name('scm.')->middleware(['auth', 'verified', 'can.access.scm'])->group(function () {
+Route::prefix('dashboard/scm')->name('scm.')->middleware(['auth', 'verified', 'module.access:SCM'])->group(function () {
     // Sales Orders (from ECO)
     Route::get('/sales-orders', [ScmSalesOrderController::class, 'index'])->name('sales-orders');
     Route::post('/sales-orders/{order}/check-inventory', [ScmSalesOrderController::class, 'checkInventory'])->name('sales-order.check-inventory');
@@ -263,11 +275,11 @@ Route::prefix('dashboard/fin')->name('fin.')->middleware(['auth', 'verified'])->
     Route::post('/access/update', [AccessController::class, 'update'])->name('access.update');
 
     Route::get('/manager', [FinDashboardController::class, 'managerDashboard'])
-        ->middleware(['role:FIN', 'position:manager'])
+        ->middleware(['module.access:FIN', 'position:manager'])
         ->name('manager.dashboard');
 
     Route::get('/staff', [FinDashboardController::class, 'staffDashboard'])
-        ->middleware(['role:FIN', 'position:staff'])
+        ->middleware(['module.access:FIN', 'position:staff'])
         ->name('employee.dashboard');
 });
 
@@ -276,26 +288,27 @@ Route::prefix('dashboard/fin')->name('fin.')->middleware(['auth', 'verified'])->
 | Manufacturing Plant (MAN) Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/man')->name('man.')->middleware(['auth', 'verified'])->group(function () {
+Route::prefix('dashboard/man')->name('man.')->middleware(['auth', 'verified', 'module.access:MAN'])->group(function () {
     Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
     Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
 
-    // Supervisor role switching
-    Route::post('/supervisor/switch', [ManSupervisorController::class, 'switchRole'])->name('supervisor.switch');
-
     // Manager access control (supervisor management)
-    Route::middleware(['role:MAN', 'position:manager'])->group(function () {
+    // Accessible by manufacturing managers (position=manager) AND elevated secretaries/GMs with MAN module
+    Route::middleware(['can.access.man.manager'])->group(function () {
         Route::get('/access/manage', [ManAccessController::class, 'index'])->name('access.manage');
         Route::post('/access/assign-supervisor', [ManAccessController::class, 'assignSupervisor'])->name('access.assign-supervisor');
-        Route::post('/access/update-roles', [ManAccessController::class, 'updateSupervisorRoles'])->name('access.update-roles');
+        // Note: updateSupervisorRoles method is removed; no route needed.
     });
 
+    // Staff dashboard entry point (redirects to role-specific dashboard or supervisor manager dashboard)
     Route::get('/staff', [ManDashboardController::class, 'staffDashboard'])
-        ->middleware(['role:MAN', 'position:staff'])
+        ->middleware(['module.access:MAN', 'position:staff'])
         ->name('employee.dashboard');
 
-    Route::middleware(['role:MAN', 'position:manager'])->group(function () {
+    // Manufacturing Manager Dashboard & Functions
+    // Accessible by both 'manager' position users, manufacturing supervisors, AND elevated secretaries/GMs with MAN module
+    Route::middleware(['can.access.man.manager'])->group(function () {
         Route::get('/', [ManufacturingManagerController::class, 'index'])->name('manager.dashboard');
         Route::get('/production', [ManufacturingManagerController::class, 'production'])->name('manager.production');
         Route::get('/rejected', [ManufacturingManagerController::class, 'rejected'])->name('manager.rejected');
@@ -304,7 +317,8 @@ Route::prefix('dashboard/man')->name('man.')->middleware(['auth', 'verified'])->
         Route::post('/packages/{id}/send-to-logistics', [ManufacturingManagerController::class, 'sendToLogistics'])->name('manager.send-to-logistics');
     });
 
-    Route::middleware(['role:MAN', 'position:staff'])->group(function () {
+    // Staff-specific routes (each role has its own sub-dashboard)
+    Route::middleware(['module.access:MAN', 'position:staff'])->group(function () {
         Route::prefix('knitting-yarn')->name('staff.knitting-yarn.')->controller(KnittingYarnController::class)
             ->middleware('man.role:knitting_yarn')
             ->group(function () {
@@ -405,10 +419,10 @@ Route::prefix('dashboard/man')->name('man.')->middleware(['auth', 'verified'])->
 
 /*
 |--------------------------------------------------------------------------
-| Warehouse Module (Restructured)
+| Warehouse Module
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/warehouse')->name('warehouse.')->middleware(['auth', 'verified', 'can.access.warehouse'])->group(function () {
+Route::prefix('dashboard/warehouse')->name('warehouse.')->middleware(['auth', 'verified', 'module.access:WAR'])->group(function () {
     Route::get('/', [WarehouseController::class, 'index'])->name('index');
     Route::post('/', [WarehouseController::class, 'store'])->name('store');
     Route::put('/{warehouse}', [WarehouseController::class, 'update'])->name('update');
@@ -433,10 +447,10 @@ Route::prefix('dashboard/warehouse')->name('warehouse.')->middleware(['auth', 'v
 
 /*
 |--------------------------------------------------------------------------
-| Inventory Module (Restructured)
+| Inventory Module
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/inventory')->name('inv.')->middleware(['auth', 'verified', 'can.access.inventory'])->group(function () {
+Route::prefix('dashboard/inventory')->name('inv.')->middleware(['auth', 'verified', 'module.access:INV'])->group(function () {
     Route::get('/', [InvDashboardController::class, 'managerDashboard'])->name('dashboard');
     Route::get('/materials', [MaterialController::class, 'material'])->name('materials');
     Route::post('/materials', [MaterialController::class, 'store'])->name('materials.store');
@@ -463,10 +477,10 @@ Route::prefix('dashboard/inventory')->name('inv.')->middleware(['auth', 'verifie
 
 /*
 |--------------------------------------------------------------------------
-| Order Processing (ORD) Routes - RESTRUCTURED
+| Order Processing (ORD) Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/ord')->name('ord.')->middleware(['auth', 'verified', 'can.access.ord'])->group(function () {
+Route::prefix('dashboard/ord')->name('ord.')->middleware(['auth', 'verified', 'module.access:ORD'])->group(function () {
     // Legacy HRM-style routes (keep for backward compatibility)
     Route::get('/interview', [InterviewController::class, 'index'])->name('interview.index');
     Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
@@ -486,10 +500,10 @@ Route::prefix('dashboard/ord')->name('ord.')->middleware(['auth', 'verified', 'c
 
 /*
 |--------------------------------------------------------------------------
-| LOGISTICS DASHBOARD & ROUTES (FIXED ROUTE NAMES)
+| LOGISTICS DASHBOARD & ROUTES
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'verified'])->prefix('dashboard/logistics')->name('logistics.')->group(function () {
+Route::middleware(['auth', 'verified', 'module.access:LOG'])->prefix('dashboard/logistics')->name('logistics.')->group(function () {
     // Main Dashboard
     Route::get('/', [LogisticsDashboardController::class, 'index'])->name('dashboard');
 
@@ -525,8 +539,6 @@ Route::middleware(['auth', 'verified'])->prefix('dashboard/logistics')->name('lo
     Route::get('/access-control', [LogAccessController::class, 'index'])->name('access.index');
     Route::post('/access-control', [LogAccessController::class, 'update'])->name('access.update');
 
-    // ***** FIXED: Route for managing delivery routes *****
-    // Changed from ->name('routes.index') to ->name('routes') so Ziggy name becomes 'logistics.routes'
     Route::get('/routes', [RoutesController::class, 'index'])->name('routes');
 });
 
@@ -535,7 +547,7 @@ Route::middleware(['auth', 'verified'])->prefix('dashboard/logistics')->name('lo
 | Customer Relationship Management (CRM) Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/crm')->name('crm.')->middleware(['auth', 'verified'])->group(function () {
+Route::prefix('dashboard/crm')->name('crm.')->middleware(['auth', 'verified', 'module.access:CRM'])->group(function () {
     Route::get('/', [CrmDashboardController::class, 'index'])->name('dashboard');
     Route::get('/lead', [LeadController::class, 'index'])->name('lead');
     Route::post('/lead/store', [LeadController::class, 'store'])->name('lead.store');
@@ -573,10 +585,10 @@ Route::prefix('dashboard/crm')->name('crm.')->middleware(['auth', 'verified'])->
 
 /*
 |--------------------------------------------------------------------------
-| E‑Commerce (ECO) Module – Restructured
+| E‑Commerce (ECO) Module
 |--------------------------------------------------------------------------
 */
-Route::prefix('dashboard/eco')->name('eco.')->middleware(['auth', 'verified', 'can.access.eco'])->group(function () {
+Route::prefix('dashboard/eco')->name('eco.')->middleware(['auth', 'verified', 'module.access:ECO'])->group(function () {
     // Dashboard
     Route::get('/', [EcoDashboardController::class, 'index'])->name('dashboard');
     // Store (product catalog)
@@ -621,7 +633,7 @@ Route::prefix('dashboard/pro')->name('pro.')->middleware(['auth', 'verified'])->
     Route::get('/trainee', [TraineeController::class, 'index'])->name('trainee.index');
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
 
-    Route::middleware(['role:PRO', 'position:manager'])->prefix('manager')->name('manager.')->group(function () {
+    Route::middleware(['module.access:PRO', 'position:manager'])->prefix('manager')->name('manager.')->group(function () {
         Route::get('/', [ProDashboardController::class, 'managerDashboard'])->name('dashboard');
         Route::get('/material-requests', [ProcurementController::class, 'materialRequests'])->name('material-requests');
         Route::post('/material-requests/rfq', [ProcurementController::class, 'createRFQ'])->name('rfq.store');
@@ -648,11 +660,11 @@ Route::prefix('dashboard/proj')->name('proj.')->middleware(['auth', 'verified'])
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
 
     Route::get('/manager', [ProjDashboardController::class, 'managerDashboard'])
-        ->middleware(['role:PROJ', 'position:manager'])
+        ->middleware(['module.access:PROJ', 'position:manager'])
         ->name('manager.dashboard');
 
     Route::get('/staff', [ProjDashboardController::class, 'staffDashboard'])
-        ->middleware(['role:PROJ', 'position:staff'])
+        ->middleware(['module.access:PROJ', 'position:staff'])
         ->name('employee.dashboard');
 });
 
@@ -667,11 +679,11 @@ Route::prefix('dashboard/it')->name('it.')->middleware(['auth', 'verified'])->gr
     Route::get('/access', [AccessController::class, 'index'])->name('access.index');
 
     Route::get('/manager', [ItDashboardController::class, 'managerDashboard'])
-        ->middleware(['role:IT', 'position:manager'])
+        ->middleware(['module.access:IT', 'position:manager'])
         ->name('manager.dashboard');
 
     Route::get('/staff', [ItDashboardController::class, 'staffDashboard'])
-        ->middleware(['role:IT', 'position:staff'])
+        ->middleware(['module.access:IT', 'position:staff'])
         ->name('employee.dashboard');
 });
 
@@ -682,6 +694,9 @@ Route::prefix('dashboard/it')->name('it.')->middleware(['auth', 'verified'])->gr
 */
 Route::prefix('dashboard/ceo')->name('ceo.')->middleware(['auth', 'verified', 'role:CEO'])->group(function () {
     Route::get('/', [CeoDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/access', [CeoAccessController::class, 'index'])->name('access');
+    Route::post('/access/update-position', [CeoAccessController::class, 'updatePosition'])->name('access.updatePosition');
+    Route::post('/access/update-modules', [CeoAccessController::class, 'updateModules'])->name('access.updateModules');
 });
 
 /*

@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Models\ManufacturingSupervisorRole;
 
 class User extends Authenticatable
 {
@@ -35,6 +34,8 @@ class User extends Authenticatable
         'promotion_suggested',
         'suggested_at',
         'manufacturing_role',
+        'is_manufacturing_supervisor',
+        'supervisor_department',
     ];
 
     /**
@@ -60,6 +61,7 @@ class User extends Authenticatable
             // Casting new fields for proper data handling
             'promotion_suggested' => 'boolean',
             'suggested_at' => 'datetime',
+            'is_manufacturing_supervisor' => 'boolean',
         ];
     }
 
@@ -266,40 +268,55 @@ class User extends Authenticatable
      * @param  string|null  $module  e.g., 'HRM', null means any module
      * @param  string|null  $department  e.g., 'dyeing'
      * @param  string  $requiredLevel  'view', 'schedule', 'manage'
+     * @return bool
      */
     public function canAccessWorkforce($module = null, $department = null, $requiredLevel = 'view')
     {
-        // CEO always has full access
+        // 1. CEO always has full access
         if ($this->role === 'CEO') {
             return true;
         }
 
-        // Superusers: secretary, general_manager (by position) – they have full access if CEO grants them any permission
-        // For simplicity, we check if they have at least one permission row with the required level.
-        $query = $this->workforcePermissions();
-
-        if ($module) {
-            $query->where(function ($q) use ($module) {
-                $q->where('module', $module)->orWhereNull('module');
-            });
-        }
-        if ($department) {
-            $query->where(function ($q) use ($department) {
-                $q->where('department', $department)->orWhereNull('department');
-            });
-        }
-
-        $levels = ['view' => 1, 'schedule' => 2, 'manage' => 3];
-        $requiredRank = $levels[$requiredLevel] ?? 1;
-
-        $permission = $query->first();
-        if (! $permission) {
+        // 2. Secretary or General Manager: check if they have 'WRF' in granted_modules
+        if (in_array($this->position, ['secretary', 'general_manager'])) {
+            $grantedModules = $this->moduleAccess->pluck('module')->toArray();
+            if (in_array('WRF', $grantedModules)) {
+                // They have full access (manage level) to workforce module
+                return true;
+            }
+            // If they don't have WRF granted, they cannot access workforce pages
             return false;
         }
 
-        $userRank = $levels[$permission->access_level] ?? 1;
+        // 3. For all other users (managers, staff, supervisors): check workforce_permissions table
+        $permissions = $this->workforcePermissions;
+        if ($permissions->isEmpty()) {
+            return false;
+        }
 
-        return $userRank >= $requiredRank;
+        // Define access level hierarchy
+        $levelRank = [
+            'view'     => 1,
+            'schedule' => 2,
+            'manage'   => 3,
+        ];
+        $requiredRank = $levelRank[$requiredLevel] ?? 1;
+
+        foreach ($permissions as $perm) {
+            // Check module match: if $module is provided, permission must have same module OR null (wildcard)
+            $moduleMatch = is_null($module) || is_null($perm->module) || $perm->module === $module;
+            // Check department match: if $department is provided, permission must have same department OR null (wildcard)
+            $deptMatch   = is_null($department) || is_null($perm->department) || $perm->department === $department;
+
+            if ($moduleMatch && $deptMatch) {
+                $permRank = $levelRank[$perm->access_level] ?? 0;
+                if ($permRank >= $requiredRank) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function crmPagePermissions()
@@ -382,7 +399,109 @@ class User extends Authenticatable
     }
 
     /**
-     * Get appropriate dashboard path based on department and position
+     * Get the module access entries for this user (secretary/general manager).
+     */
+    public function moduleAccess()
+    {
+        return $this->hasMany(UserModuleAccess::class);
+    }
+
+    public function manufacturingSupervisorRoles()
+{
+    return $this->hasMany(ManufacturingSupervisorRole::class);
+}
+
+/**
+ * Get the list of manufacturing roles this supervisor can oversee (based on department).
+ */
+public function getSupervisedRolesAttribute()
+{
+    if (!$this->is_manufacturing_supervisor || !$this->supervisor_department) {
+        return [];
+    }
+
+    return match ($this->supervisor_department) {
+        'knitting' => ['knitting_yarn'],
+        'dyeing' => [
+            'dyeing_color',
+            'dyeing_fabric_softener',
+            'dyeing_squeezer',
+            'dyeing_ironing',
+            'dyeing_forming',
+            'dyeing_packaging',
+            'checker_quality',
+        ],
+        'maintenance' => ['maintenance_checker'],
+        default => [],
+    };
+}
+
+/**
+ * Check if this supervisor can manage a given manufacturing role.
+ */
+public function canSuperviseRole(string $role): bool
+{
+    return in_array($role, $this->supervised_roles);
+}
+
+/**
+ * Get all staff members under this supervisor's department.
+ */
+public function getDepartmentStaff()
+{
+    if (!$this->is_manufacturing_supervisor) {
+        return collect();
+    }
+
+    $roles = $this->supervised_roles;
+    return User::where('role', 'MAN')
+        ->where('position', 'staff')
+        ->whereIn('manufacturing_role', $roles)
+        ->get();
+}
+
+    /**
+     * Helper method to check if user can access a specific module.
+     * For secretaries/GMs: if granted_modules is empty → fallback to original role.
+     * Once any module is explicitly granted, only those modules are allowed.
+     */
+    public function canAccessModule(string $module): bool
+    {
+        // CEO always has access to everything
+        if ($this->role === 'CEO') {
+            return true;
+        }
+
+        // For secretaries and general managers
+        if (in_array($this->position, ['secretary', 'general_manager'])) {
+            $granted = $this->moduleAccess->pluck('module')->toArray();
+
+            // If no modules have been explicitly granted yet,
+            // fall back to the user's original role (e.g., HRM, MAN, etc.)
+            if (empty($granted)) {
+                return $this->role === $module;
+            }
+
+            // Otherwise, check only the explicitly granted modules
+            return in_array($module, $granted);
+        }
+
+        // Normal managers/staff have default access based on their role
+        return $this->role === $module;
+    }
+
+    /**
+     * Get list of modules this user is explicitly granted (for frontend).
+     */
+    public function getGrantedModulesAttribute()
+    {
+        return $this->moduleAccess->pluck('module')->toArray();
+    }
+
+    /**
+     * Get appropriate dashboard path based on department and position.
+     * For secretaries and general managers, redirect to the manager dashboard
+     * of their original role (since they retain access via fallback).
      */
     public function getDashboardPathAttribute(): string
     {
@@ -391,6 +510,26 @@ class User extends Authenticatable
             return route('trainee.dashboard');
         }
 
+        // Secretaries and general managers: use the manager dashboard of their role
+        if (in_array($this->position, ['secretary', 'general_manager'])) {
+            return match ($this->role) {
+                'HRM' => route('hrm.manager.dashboard'),
+                'SCM' => route('scm.manager.dashboard'),
+                'FIN' => route('fin.manager.dashboard'),
+                'MAN' => route('man.manager.dashboard'),
+                'INV' => route('inv.manager.dashboard'),
+                'ORD' => route('ord.manager.dashboard'),
+                'WAR' => route('war.manager.dashboard'),
+                'CRM' => route('crm.manager.dashboard'),
+                'ECO' => route('eco.manager.dashboard'),
+                'PRO' => route('pro.manager.dashboard'),
+                'PROJ' => route('proj.manager.dashboard'),
+                'IT' => route('it.manager.dashboard'),
+                default => route('dashboard'),
+            };
+        }
+
+        // For normal managers and staff
         return match ([$this->role, $this->position]) {
             ['HRM', 'manager'] => route('hrm.manager.dashboard'),
             ['HRM', 'staff'] => route('hrm.employee.dashboard'),

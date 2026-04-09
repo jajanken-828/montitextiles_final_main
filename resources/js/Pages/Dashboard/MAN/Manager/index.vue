@@ -263,13 +263,13 @@ const getAvatarColor = (name) => {
                         <ArrowRight class="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         <div class="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                     </Link>
-                    <Link :href="route('man.access.manage')"
+                    <!-- <Link :href="route('man.access.manage')"
                         class="group relative overflow-hidden bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-4 rounded-xl font-bold text-sm shadow-lg transition-all duration-300 flex items-center justify-center gap-2">
                         <ShieldCheck class="w-5 h-5 group-hover:scale-110 transition-transform" />
                         Access Control (Supervisors)
                         <ArrowRight class="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         <div class="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                    </Link>
+                    </Link> -->
                 </div>
 
                 <!-- Charts Row -->

@@ -13,7 +13,7 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
 const isLoaded = ref(false);
-const showSuccessModal = ref(false);
+const showSuccessModal = ref(false); 
 
 // Dynamic arrays for children and employment records
 const children = ref([]);
@@ -24,7 +24,7 @@ const showEmploymentSection = ref(false);
 const addChild = () => {
     children.value.push({ name: '', dob: '' });
 };
-const removeChild = (index) => {
+const removeChild = (index) => { 
     children.value.splice(index, 1);
 };
 
@@ -50,9 +50,9 @@ const form = useForm({
     state_province: '',
     postal_zip_code: '',
     position_applied: '',
-    expected_salary: '',
-    notice_period: 'Immediate', // Capitalized to match earlier discussion
-    textile_experience: '',     // Will send 'yes' or 'no'
+
+    notice_period: 'Immediate',
+
     sss_file: null,
     philhealth_file: null,
     pagibig_file: null,
@@ -83,6 +83,10 @@ const form = useForm({
     father_name: '',
     father_address: '',
     languages: '',
+    
+    // Arrays needed for Inertia to track them
+    children: [],
+    employment_records: [],
 
     // Emergency
     emergency_name: '',
@@ -139,8 +143,8 @@ const submitForm = () => {
         return;
     }
 
-    if (form.phone_raw.length !== 12 || !/^\d{12}$/.test(form.phone_raw)) {
-        toast.error('Phone number must be exactly 12 digits. (e.g. 639123456789)');
+    if (form.phone_raw.length < 10 || !/^\d{10,12}$/.test(form.phone_raw)) {
+        toast.error('Phone number must be valid (10-12 digits). e.g. 09123456789');
         return;
     }
 
@@ -149,17 +153,17 @@ const submitForm = () => {
         return;
     }
 
-    if (!form.expected_salary) {
-        toast.error('Please enter your expected salary.');
+    // Weight and Height Backend Fallback Validation
+    if (form.weight !== '' && form.weight !== null && parseFloat(form.weight) <= 0) {
+        toast.error('Weight must be greater than 0.');
+        return;
+    }
+    if (form.height !== '' && form.height !== null && parseFloat(form.height) <= 0) {
+        toast.error('Height must be greater than 0.');
         return;
     }
 
-    if (!form.textile_experience) {
-        toast.error('Please specify if you have textile experience.');
-        return;
-    }
-
-    // Trim and check for emptiness – also show which field is empty
+    // Trim and check for emptiness
     const street = form.street_address?.trim() || '';
     const city = form.city?.trim() || '';
     const state = form.state_province?.trim() || '';
@@ -225,7 +229,7 @@ const removeFile = (type) => {
     form[type + '_file'] = null;
 };
 
-// Input sanitization (as before)
+// Input sanitization
 const inputWarnings = ref({});
 let warningTimeouts = {};
 
@@ -262,6 +266,13 @@ const blockSpecialForEmail = (e) => {
     if (e.key.length === 1 && !/^[a-zA-Z0-9@.\-]$/.test(e.key)) {
         e.preventDefault();
         triggerWarning('email', 'Invalid character. Only letters, numbers, @, ., and - are allowed.');
+    }
+};
+
+// NEW: Blocks negative signs and exponential letters on number inputs
+const blockNegative = (e) => {
+    if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
     }
 };
 
@@ -309,13 +320,41 @@ watch(() => form.postal_zip_code, (val) => {
     }
 });
 
+const enforceNumbersOnly = (event) => {
+    const cleanedValue = event.target.value.replace(/[^0-9]/g, '');
+    event.target.value = cleanedValue;
+    form.phone_raw = cleanedValue;
+};
+
+const blockNonNumbers = (event) => {
+    if (!/[0-9]/.test(event.key)) {
+        event.preventDefault();
+    }
+};
+
+const activePositions = ref([]);
+
+const fetchActivePositions = async () => {
+    try {
+        const response = await fetch('/active-positions');
+        
+        if (response.ok) {
+            const data = await response.json();
+            activePositions.value = data;
+        }
+    } catch (error) {
+        console.error("Error fetching active positions:", error);
+    }
+};
+
 onMounted(() => {
     isLoaded.value = true;
+    fetchActivePositions();
 });
+
 </script>
 
 <template>
-
     <Head title="Join Our Team | Monti Corp Careers" />
 
     <div class="relative min-h-screen flex flex-col bg-cover bg-center bg-no-repeat"
@@ -458,56 +497,60 @@ onMounted(() => {
                                         inputWarnings.email
                                         }}</p>
                                 </div>
+
                                 <div>
-                                    <InputLabel for="phone_raw" value="Phone Number (12 digits)"
+                                    <InputLabel for="phone_raw" value="Phone Number (10-12 digits)"
                                         class="text-white/90 font-semibold" />
-                                    <TextInput id="phone_raw" type="tel"
-                                        class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl"
-                                        v-model="form.phone_raw" required placeholder="639123456789" />
+                                    <div class="flex gap-2 mt-1">
+                                        <select v-model="form.phone_country"
+                                            class="w-[35%] py-3 px-1 bg-white/15 border border-white/30 text-white rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition-all cursor-pointer custom-select">
+                                            <option value="+63">+63 (PH)</option>
+                                            <option value="+1">+1 (US/CA)</option>
+                                        </select>
+                                        
+                                        <TextInput id="phone_raw" type="tel" maxlength="12"
+                                            class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl"
+                                            v-model="form.phone_raw" 
+                                            @input="enforceNumbersOnly"
+                                            @keypress="blockNonNumbers"
+                                            required placeholder="09123456789" />
+                                        
+                                    </div>
                                     <p v-if="inputWarnings.phone_raw"
-                                        class="text-xs text-red-300 font-bold mt-1 ml-1 animate-pulse">{{
-                                        inputWarnings.phone_raw }}</p>
-                                </div>
-                                <div>
-                                    <InputLabel for="position_applied" value="Position Applied For"
-                                        class="text-white/90 font-semibold" />
-                                    <select id="position_applied" v-model="form.position_applied" required
-                                        class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl custom-select">
-                                        <option value="">Select Position</option>
-                                        <option value="Staff">Staff</option>
-                                        <option value="Production Worker">Production Worker</option>
-                                        <option value="Quality Checker">Quality Checker</option>
-                                        <option value="Maintenance Technician">Maintenance Technician</option>
-                                        <option value="Manager">Manager</option>
-                                    </select>
+                                        class="text-xs text-red-500 font-bold mt-1 ml-1 animate-pulse">
+                                        {{ inputWarnings.phone_raw }}
+                                    </p>
                                 </div>
 
                                 <div>
-                                    <InputLabel for="expected_salary" value="Expected Salary (PHP)"
-                                        class="text-white/90 font-semibold" />
-                                    <TextInput id="expected_salary" type="number"
-                                        class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl"
-                                        v-model="form.expected_salary" required placeholder="e.g. 15000" />
-                                </div>
-                                <div>
-                                    <InputLabel for="textile_experience" value="Textile Experience"
-                                        class="text-white/90 font-semibold" />
-                                    <select id="textile_experience" v-model="form.textile_experience" required
-                                        class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl custom-select">
-                                        <option value="">Select Option</option>
-                                        <option value="yes">Yes, I have textile experience</option>
-                                        <option value="no">No prior experience</option>
+                                    <InputLabel for="position_applied" value="Position Applied For" class="text-white/90 font-semibold" />
+                                    <select 
+                                        id="position_applied" 
+                                        v-model="form.position_applied" 
+                                        required
+                                        class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl custom-select"
+                                    >
+                                        <option value="" disabled>Select Position</option>
+                                        
+                                        <option 
+                                            v-for="pos in activePositions" 
+                                            :key="pos.id" 
+                                            :value="pos.position"
+                                        >
+                                            {{ pos.position }}
+                                        </option>
                                     </select>
                                 </div>
+
                                 <div>
                                     <InputLabel for="notice_period" value="Notice Period"
                                         class="text-white/90 font-semibold" />
                                     <select id="notice_period" v-model="form.notice_period" required
                                         class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl custom-select">
                                         <option value="Immediate">Immediate</option>
-                                        <option value="15 Days">15 Days</option>
-                                        <option value="30 Days">30 Days</option>
-                                        <option value="60 Days">60 Days</option>
+                                        <option value="15_Days">15 Days</option>
+                                        <option value="30_Days">30 Days</option>
+                                        <option value="60_Days">60 Days</option>
                                     </select>
                                 </div>
 
@@ -577,16 +620,20 @@ onMounted(() => {
 
                                 <div>
                                     <InputLabel for="weight" value="Weight (kg)" class="text-white/90 font-semibold" />
-                                    <TextInput id="weight" type="number" step="0.1"
+                                    <TextInput id="weight" type="number" step="0.1" min="0"
                                         class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl"
-                                        v-model="form.weight" placeholder="65.5" />
+                                        v-model="form.weight" placeholder="65.5" 
+                                        @keypress="blockNegative" />
                                 </div>
+                                
                                 <div>
                                     <InputLabel for="height" value="Height (cm)" class="text-white/90 font-semibold" />
-                                    <TextInput id="height" type="number" step="0.1"
+                                    <TextInput id="height" type="number" step="0.1" min="0"
                                         class="mt-1 block w-full py-3 px-4 bg-white/15 border border-white/30 text-white rounded-xl"
-                                        v-model="form.height" placeholder="170" />
+                                        v-model="form.height" placeholder="170" 
+                                        @keypress="blockNegative" />
                                 </div>
+
                                 <div>
                                     <InputLabel for="civil_status" value="Civil Status"
                                         class="text-white/90 font-semibold" /><select id="civil_status"

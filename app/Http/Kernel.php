@@ -30,11 +30,13 @@ class Kernel extends HttpKernel
         'role' => \App\Http\Middleware\CheckRole::class,
         'position' => \App\Http\Middleware\CheckPosition::class,
         'can.access.eco' => \App\Http\Middleware\CheckEcoAccess::class,
-        'can.access.ord' => \App\Http\Middleware\CanAccessOrd::class,  // NEW: Order Management access control
+        'can.access.ord' => \App\Http\Middleware\CanAccessOrd::class,
         'can.access.warehouse' => \App\Http\Middleware\CanAccessWarehouse::class,
         'can.access.inventory' => \App\Http\Middleware\CanAccessInventory::class,
         'can.access.scm' => \App\Http\Middleware\CanAccessScm::class,
         'can.access.procurement' => \App\Http\Middleware\CanAccessProcurement::class,
         'can.access.logistics' => \App\Http\Middleware\CheckLogisticsAccess::class,
+        'module.access' => \App\Http\Middleware\CheckModuleAccess::class,
+        'can.access.man.manager' => \App\Http\Middleware\CheckManufacturingManagerAccess::class, // NEW
     ];
 }

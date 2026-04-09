@@ -4,7 +4,8 @@ namespace App\Http\Middleware;
 
 use App\Models\PagePermission;
 use App\Models\WorkforcePermission;
-use App\Models\CrmPagePermission; // Added for CRM permissions
+use App\Models\CrmPagePermission;
+use App\Models\UserModuleAccess; // Added for module access (secretary/GM)
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
@@ -54,11 +55,15 @@ class HandleInertiaRequests extends Middleware
                 $crmPagePermissions = CrmPagePermission::where('user_id', $user->id)->pluck('page')->toArray();
             }
 
+            // Fetch granted modules for secretary / general manager (from user_module_access)
+            $grantedModules = UserModuleAccess::where('user_id', $user->id)->pluck('module')->toArray();
+
             // Merge the original user attributes with the permissions arrays
             $userData = array_merge($user->toArray(), [
                 'permissions'            => $permissions,
                 'workforce_permissions'  => $workforcePermissions,
                 'crmPagePermissions'     => $crmPagePermissions,
+                'granted_modules'        => $grantedModules, // For secretary/GM module access
             ]);
         }
 
